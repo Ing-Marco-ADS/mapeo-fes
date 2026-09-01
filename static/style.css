@@ -1,0 +1,538 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f6f9;
+    color: #1a1a1a;
+    min-height: 100vh;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+/* Ocultar visualmente sin quitarlo del lector de pantalla solo durante la transicion.
+   Se usa combinado con .oculto-real para eliminarlo completamente cuando corresponde. */
+.oculto {
+    display: none;
+}
+
+/* Enlace de salto - accesibilidad (criterio 2.4.1) */
+.saltar-al-contenido {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    background: #333;
+    color: #fff;
+    padding: 12px 16px;
+    text-decoration: none;
+}
+
+.saltar-al-contenido:focus,
+.saltar-al-contenido:focus-visible {
+    left: 0;
+    color: #fff;
+    background: #222;
+}
+
+/* Foco visible para todos los elementos interactivos (criterio 2.4.7) */
+:focus-visible {
+    outline: 3px solid #7c3aed;
+    outline-offset: 2px;
+}
+
+.encabezado {
+    background: #ffffff;
+    padding: 20px 16px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.encabezado h1 {
+    font-size: 28px;
+    color: #4c1d95;
+    margin-bottom: 8px;
+}
+
+#estado {
+    font-size: 16px;
+    color: #2d3748;
+    padding: 8px 14px;
+    background: #edf2f7;
+    border-radius: 8px;
+    display: inline-block;
+    border: 1px solid #cbd5e1;
+}
+
+main {
+    padding: 16px;
+    max-width: 520px;
+    margin: 0 auto;
+}
+
+section {
+    margin-bottom: 20px;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    font-size: 18px;
+    color: #1a1a1a;
+    margin-bottom: 8px;
+}
+
+.instructivo {
+    font-size: 15px;
+    color: #2d3748;
+    margin-bottom: 12px;
+}
+
+/* Objetivo tactil minimo 44px (criterio 2.5.5) */
+button {
+    min-height: 44px;
+    cursor: pointer;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+#btn-iniciar {
+    width: 100%;
+    min-height: 60px;
+    padding: 16px;
+    font-size: 20px;
+    font-weight: 700;
+    background: #15803d;
+    color: #ffffff;
+    border: none;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+}
+
+#btn-iniciar:hover {
+    background: #166534;
+}
+
+#btn-iniciar:active {
+    transform: scale(0.98);
+}
+
+#btn-terminar {
+    width: 100%;
+    min-height: 52px;
+    padding: 14px;
+    font-size: 17px;
+    font-weight: 600;
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    margin-top: 12px;
+}
+
+#btn-exportar {
+    width: 100%;
+    min-height: 52px;
+    padding: 14px;
+    font-size: 17px;
+    font-weight: 600;
+    background: #4c1d95;
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    margin-top: 12px;
+}
+
+.grilla-puntos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.punto-btn {
+    min-height: 68px;
+    padding: 14px 10px;
+    font-size: 16px;
+    font-weight: 700;
+    border: 3px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    color: #ffffff;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: transform 0.15s, opacity 0.15s;
+}
+
+.punto-btn .emoji {
+    font-size: 24px;
+}
+
+.punto-btn:active {
+    transform: scale(0.96);
+}
+
+/* Colores con contraste suficiente sobre el texto blanco (criterio 1.4.3) */
+.punto-btn.banio {
+    background: #0369a1;
+}
+
+.punto-btn.biblioteca {
+    background: #7e22ce;
+}
+
+.punto-btn.edificio {
+    background: #15803d;
+}
+
+.punto-btn.acceso {
+    background: #b45309;
+}
+
+.punto-btn.alarma {
+    background: #b91c1c;
+}
+
+.punto-btn.otro {
+    background: #334155;
+}
+
+#mapa-rec {
+    width: 100%;
+    height: 280px;
+    border-radius: 12px;
+    margin: 10px 0;
+    border: 2px solid #94a3b8;
+    background: #e8e8e8;
+}
+
+#mapa-rec .leaflet-container {
+    border-radius: 12px;
+}
+
+#tracking p {
+    margin: 6px 0;
+    color: #2d3748;
+    font-size: 15px;
+}
+
+#toast {
+    position: fixed;
+    bottom: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: #ffffff;
+    padding: 16px 24px;
+    border-radius: 12px;
+    transition: bottom 0.3s;
+    z-index: 1000;
+    width: 90%;
+    max-width: 360px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+#toast.visible {
+    bottom: 20px;
+}
+
+/* Dialogo modal accesible para nombrar la ubicacion */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 2000;
+}
+
+.modal.oculto {
+    display: none;
+}
+
+.modal-contenido {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 22px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-contenido h2 {
+    font-size: 20px;
+    color: #1a1a1a;
+    margin-bottom: 8px;
+}
+
+.modal-contenido p {
+    font-size: 15px;
+    color: #2d3748;
+    margin-bottom: 14px;
+}
+
+.modal-contenido label {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 6px;
+}
+
+.modal-contenido input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    font-size: 17px;
+    border: 2px solid #64748b;
+    border-radius: 10px;
+    color: #1a1a1a;
+    background: #ffffff;
+    min-height: 48px;
+}
+
+.modal-contenido input[type="text"]:focus {
+    border-color: #7c3aed;
+    outline: 3px solid rgba(124, 58, 237, 0.3);
+    outline-offset: 0;
+}
+
+.modal-acciones {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.modal-acciones button {
+    flex: 1;
+    min-height: 50px;
+    padding: 12px;
+    font-size: 17px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+}
+
+#btn-cancelar-dialogo {
+    background: #e2e8f0;
+    color: #1a1a1a;
+}
+
+#btn-guardar-dialogo {
+    background: #4c1d95;
+    color: #ffffff;
+}
+
+@media (min-width: 600px) {
+    .grilla-puntos {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+/* ---- Seccion de datos mapeados ---- */
+.datos-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.item-dato {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 12px;
+    background: #f8fafc;
+}
+
+.item-dato .dato-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.item-dato .dato-nombre {
+    font-weight: 700;
+    color: #1a1a1a;
+    font-size: 15px;
+}
+
+.item-dato .dato-detalle {
+    font-size: 14px;
+    color: #334155;
+}
+
+.boton-borrar-item {
+    background: #b91c1c;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.boton-borrar-item:hover {
+    background: #991b1b;
+}
+
+.borrar-todo {
+    width: 100%;
+    min-height: 50px;
+    margin-top: 14px;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    background: #b91c1c;
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+}
+
+#btn-confirmar-borrar {
+    background: #b91c1c;
+    color: #ffffff;
+}
+
+/* ---- Selector de color de marca ---- */
+.selector-color {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.selector-color .instructivo {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #334155;
+}
+
+.paleta-colores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.color-chip {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 3px solid #ffffff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.color-chip.color-activo {
+    border: 3px solid #1a1a1a;
+    outline: 3px solid #7c3aed;
+    outline-offset: 2px;
+}
+
+.color-seleccionado {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    text-align: center;
+}
+
+.color-chip.color-chico {
+    width: 44px;
+    height: 44px;
+}
+
+/* ---- Dialogo de edicion ---- */
+.modal-contenido select {
+    width: 100%;
+    padding: 12px;
+    font-size: 17px;
+    border: 2px solid #64748b;
+    border-radius: 10px;
+    color: #1a1a1a;
+    background: #ffffff;
+    min-height: 48px;
+    margin-bottom: 6px;
+}
+
+#btn-guardar-editar {
+    background: #4c1d95;
+    color: #ffffff;
+}
+
+.btn-peligro {
+    background: #b91c1c;
+    color: #ffffff;
+}
+
+.dato-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.dato-actions button {
+    flex: 1;
+    min-height: 44px;
+    padding: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+}
+
+.btn-editar-punto {
+    background: #4c1d95;
+    color: #ffffff;
+}
+
+.btn-eliminar-punto {
+    background: #b91c1c;
+    color: #ffffff;
+}
+
+.lista-puntos-sesion {
+    margin-top: 8px;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 8px;
+}
+
+.punto-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+}
+
+.punto-item .punto-col {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.contenedor-editar-botones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#667eea">
+    <title>Mapeo FES — Mapa accesible de la facultad</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <a class="saltar-al-contenido" href="#principal">Saltar al contenido principal</a>
+
+    <header class="encabezado">
+        <h1>Mapeo FES</h1>
+        <p id="estado" role="status" aria-live="polite">Esperando señal GPS.</p>
+    </header>
+
+    <main id="principal">
+        <section id="inicio-sesion" aria-labelledby="titulo-iniciar">
+            <h2 id="titulo-iniciar">Comenzar recorrido</h2>
+            <p class="instructivo">Presiona el botón para empezar a registrar tu recorrido desde tu posición actual.</p>
+            <button id="btn-iniciar" type="button" onclick="iniciarRecorrido()">
+                <span class="emoji" aria-hidden="true">▶️</span>
+                Iniciar recorrido
+            </button>
+        </section>
+
+        <section id="botones-puntos" class="oculto" aria-labelledby="titulo-puntos" aria-hidden="true">
+            <h2 id="titulo-puntos">Marcar puntos de interés</h2>
+            <div class="selector-color" role="group" aria-label="Color de la marca">
+                <p class="instructivo" id="color-ayuda">Elige el color para la marca. Se aplicará al siguiente punto que marques.</p>
+                <div class="paleta-colores">
+                    <button type="button" class="color-chip color-chico" data-color="#f59e0b" aria-label="Color ámbar" onclick="seleccionarColor('#f59e0b')"></button>
+                    <button type="button" class="color-chip color-chico" data-color="#ef4444" aria-label="Color rojo" onclick="seleccionarColor('#ef4444')"></button>
+                    <button type="button" class="color-chip color-chico" data-color="#3b82f6" aria-label="Color azul" onclick="seleccionarColor('#3b82f6')"></button>
+                    <button type="button" class="color-chip color-chico" data-color="#22c55e" aria-label="Color verde" onclick="seleccionarColor('#22c55e')"></button>
+                    <button type="button" class="color-chip color-chico" data-color="#a855f7" aria-label="Color morado" onclick="seleccionarColor('#a855f7')"></button>
+                    <button type="button" class="color-chip color-chico" data-color="#f472b6" aria-label="Color rosa" onclick="seleccionarColor('#f472b6')"></button>
+                    <button type="button" class="color-chip color-chico" data-color="#06b6d4" aria-label="Color cian" onclick="seleccionarColor('#06b6d4')"></button>
+                    <button type="button" class="color-chip color-chico" data-color="#ffffff" aria-label="Color blanco" onclick="seleccionarColor('#ffffff')"></button>
+                </div>
+                <p id="color-seleccionado" class="color-seleccionado" aria-live="polite">Color actual: ámbar</p>
+            </div>
+            <div class="grilla-puntos" role="group" aria-label="Tipos de punto">
+                <button class="punto-btn banio" type="button" onclick="marcarPunto('banio')">
+                    <span class="emoji" aria-hidden="true">🚻</span> Baño
+                </button>
+                <button class="punto-btn biblioteca" type="button" onclick="marcarPunto('biblioteca')">
+                    <span class="emoji" aria-hidden="true">📚</span> Biblioteca
+                </button>
+                <button class="punto-btn edificio" type="button" onclick="marcarPunto('edificio')">
+                    <span class="emoji" aria-hidden="true">🏢</span> Edificio
+                </button>
+                <button class="punto-btn acceso" type="button" onclick="marcarPunto('acceso')">
+                    <span class="emoji" aria-hidden="true">♿</span> Acceso
+                </button>
+                <button class="punto-btn alarma" type="button" onclick="marcarPunto('alarma')">
+                    <span class="emoji" aria-hidden="true">🚨</span> Alarma
+                </button>
+                <button class="punto-btn otro" type="button" onclick="abrirDialogoNombre()">
+                    <span class="emoji" aria-hidden="true">📌</span> Dar nombre a una ubicación
+                </button>
+            </div>
+        </section>
+
+        <section id="tracking" aria-labelledby="titulo-tracking">
+            <h2 id="titulo-tracking">Información del recorrido</h2>
+            <div id="mapa-rec" role="img" aria-label="Mapa con el recorrido registrado. Los puntos de interés se muestran con marcadores de color."></div>
+            <p>Punto de inicio: <strong id="punto-inicio">—</strong></p>
+            <p>Puntos registrados: <strong id="contador" aria-live="polite">0</strong></p>
+            <button id="btn-terminar" type="button" onclick="terminarRecorrido()" class="oculto">
+                <span class="emoji" aria-hidden="true">⏹️</span> Terminar recorrido
+            </button>
+            <button id="btn-exportar" type="button" onclick="exportar()">
+                <span class="emoji" aria-hidden="true">📤</span> Exportar datos
+            </button>
+        </section>
+
+        <section id="datos-mapeados" aria-labelledby="titulo-datos">
+            <h2 id="titulo-datos">Datos mapeados</h2>
+            <p id="sin-datos" class="instructivo">Aún no hay datos guardados.</p>
+            <div id="lista-datos" class="datos-lista"></div>
+            <button id="btn-borrar-todo" type="button" onclick="confirmarBorrarTodo()" class="borrar-todo">
+                Borrar todos los datos
+            </button>
+        </section>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <div id="dialogo-nombre" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo" aria-describedby="descripcion-dialogo" aria-hidden="true">
+        <div class="modal-contenido">
+            <h2 id="titulo-dialogo">Nombre de la ubicación</h2>
+            <p id="descripcion-dialogo">Escribe el nombre que quieres ponerle a este lugar (se marcará en tu posición actual).</p>
+            <label for="nombre-ubicacion">Nombre de la ubicación</label>
+            <input type="text" id="nombre-ubicacion" autocomplete="off" />
+            <div class="modal-acciones">
+                <button type="button" id="btn-cancelar-dialogo" onclick="cerrarDialogoNombre()">Cancelar</button>
+                <button type="button" id="btn-guardar-dialogo" onclick="guardarUbicacionNombrada()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dialogo-confirmacion" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="titulo-confirmar" aria-hidden="true">
+        <div class="modal-contenido">
+            <h2 id="titulo-confirmar">Confirmar borrado</h2>
+            <p id="texto-confirmar">¿Seguro que quieres borrar esto? No se puede deshacer.</p>
+            <div class="modal-acciones">
+                <button type="button" id="btn-cancelar-confirmar" onclick="cerrarConfirmacion()">Cancelar</button>
+                <button type="button" id="btn-confirmar-borrar" onclick="ejecutarBorrado()">Borrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dialogo-editar" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="titulo-editar" aria-hidden="true">
+        <div class="modal-contenido">
+            <h2 id="titulo-editar">Editar punto</h2>
+            <p id="descripcion-editar">Corrige los datos de este punto.</p>
+            <label for="nombre-editar">Nombre del punto</label>
+            <input type="text" id="nombre-editar" autocomplete="off" />
+            <label for="color-editar">Color de la marca</label>
+            <select id="color-editar">
+                <option value="#f59e0b">Ámbar</option>
+                <option value="#ef4444">Rojo</option>
+                <option value="#3b82f6">Azul</option>
+                <option value="#22c55e">Verde</option>
+                <option value="#a855f7">Morado</option>
+                <option value="#f472b6">Rosa</option>
+                <option value="#06b6d4">Cian</option>
+                <option value="#ffffff">Blanco</option>
+            </select>
+            <div class="modal-acciones">
+                <button type="button" id="btn-eliminar-editar" class="btn-peligro" onclick="eliminarPuntoEdicion()">Eliminar</button>
+                <button type="button" onclick="cerrarDialogoEditar()">Cancelar</button>
+                <button type="button" id="btn-guardar-editar" onclick="guardarEdicionPunto()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

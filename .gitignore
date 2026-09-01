@@ -1,0 +1,16 @@
+# Clave API personal (cada quien debe poner la suya)
+.graphhopper_key
+
+# Datos locales que no se comparten
+mapeo.db
+
+# Entorno virtual y cache de Python
+venv/
+__pycache__/
+*.pyc
+
+# Binario del tunel Cloudflare (descargar aparte o dejar fuera)
+cloudflared
+
+# Archivos temporales del sistema
+.DS_Store
