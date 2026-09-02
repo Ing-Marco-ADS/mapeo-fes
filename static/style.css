@@ -150,8 +150,8 @@ button {
 
 .grilla-puntos {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
 }
 
 .punto-btn {
@@ -203,6 +203,34 @@ button {
 
 .punto-btn.otro {
     background: #334155;
+}
+
+.punto-btn.escaleras {
+    background: #0369a1;
+}
+
+.punto-btn.escalon {
+    background: #a21caf;
+}
+
+.punto-btn.rampa {
+    background: #0f766e;
+}
+
+.punto-btn.reunion {
+    background: #c2410c;
+}
+
+.punto-btn.descanso {
+    background: #4d7c0f;
+}
+
+.punto-btn.emergencia {
+    background: #b91c1c;
+}
+
+.punto-btn.entrada_salida {
+    background: #4338ca;
 }
 
 #mapa-rec {
@@ -337,7 +365,7 @@ button {
 
 @media (min-width: 600px) {
     .grilla-puntos {
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: repeat(4, 1fr);
     }
 }
 

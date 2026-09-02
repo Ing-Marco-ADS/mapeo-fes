@@ -21,6 +21,13 @@ const tipos = {
     'edificio': '🏢 Edificio',
     'acceso': '♿ Acceso',
     'alarma': '🚨 Alarma',
+    'escaleras': '🪜 Escaleras',
+    'escalon': '⬇️ Escalón',
+    'rampa': '↗️ Rampa',
+    'reunion': '⛑️ Punto de reunión',
+    'descanso': '☕ Lugar de descanso',
+    'emergencia': '🚪 Salida de emergencia',
+    'entrada_salida': '🚪 Entrada/Salida',
     'otro': '📌 Otro'
 };
 
@@ -159,6 +166,13 @@ function textoTipo(tipo) {
         'edificio': 'Edificio',
         'acceso': 'Acceso',
         'alarma': 'Alarma',
+        'escaleras': 'Escaleras',
+        'escalon': 'Escalón',
+        'rampa': 'Rampa',
+        'reunion': 'Punto de reunión',
+        'descanso': 'Lugar de descanso',
+        'emergencia': 'Salida de emergencia',
+        'entrada_salida': 'Entrada/Salida',
         'otro': 'Otro punto'
     };
     return textos[tipo] || 'Punto';
@@ -194,6 +208,13 @@ function dibujarPuntoEnMapa(tipo, lat, lng, nombre, color) {
         'edificio': '#66bb6a',
         'acceso': '#ffa726',
         'alarma': '#ef5350',
+        'escaleras': '#0ea5e9',
+        'escalon': '#d946ef',
+        'rampa': '#14b8a6',
+        'reunion': '#f97316',
+        'descanso': '#84cc16',
+        'emergencia': '#dc2626',
+        'entrada_salida': '#6366f1',
         'otro': '#78909c'
     };
 
