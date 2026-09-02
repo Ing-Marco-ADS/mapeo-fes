@@ -1,0 +1,182 @@
+[
+  {
+    "id": 1,
+    "tarea": "Clonar repo y configurar entorno de desarrollo",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 1,
+    "fin": 1,
+    "estado": "Pendiente",
+    "descripcion": "Instalar Python, dependencias, clonar desde GitHub, verificar que la app corre local."
+  },
+  {
+    "id": 2,
+    "tarea": "Configurar GraphHopper y probar encaje de caminos",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 1,
+    "fin": 2,
+    "estado": "Pendiente",
+    "descripcion": "Obtener clave, guardar .graphhopper_key, probar /api/snap con puntos reales de la FES."
+  },
+  {
+    "id": 3,
+    "tarea": "Primer recorrido de validacion en campo",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 1,
+    "fin": 2,
+    "estado": "Pendiente",
+    "descripcion": "Salir a la FES con la app, hacer un recorrido corto, verificar que el tracking y los puntos funcionan bien."
+  },
+  {
+    "id": 4,
+    "tarea": "Reportar errores y sugerencias encontrados",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 2,
+    "fin": 2,
+    "estado": "Pendiente",
+    "descripcion": "Documentar que no funciono, que se necesita mejorar, que botones faltan, etc."
+  },
+  {
+    "id": 5,
+    "tarea": "Corregir errores de tracking y tipos de puntos",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 3,
+    "fin": 4,
+    "estado": "Pendiente",
+    "descripcion": "Ajustar el encaje de caminos, agregar tipos de punto que falten, corregir bugs reportados."
+  },
+  {
+    "id": 6,
+    "tarea": "Mapear zona norte de la FES (edificios principales)",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 3,
+    "fin": 5,
+    "estado": "Pendiente",
+    "descripcion": "Recorrer y marcar: edificios, escaleras, rampas, banos, biblioteca, etc. de la zona norte."
+  },
+  {
+    "id": 7,
+    "tarea": "Agregar funcionalidad de compartir recorrido (QR/WhatsApp)",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 5,
+    "fin": 6,
+    "estado": "Pendiente",
+    "descripcion": "Generar codigo QR con la URL del mapa exportado, boton para compartir por WhatsApp."
+  },
+  {
+    "id": 8,
+    "tarea": "Mapear zona central de la FES (patios, canchas)",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 5,
+    "fin": 7,
+    "estado": "Pendiente",
+    "descripcion": "Recorrer patios, canchas de basquet/futbol, cafeterias, zona de descanso."
+  },
+  {
+    "id": 9,
+    "tarea": "Mejorar narracion por voz de puntos cercanos",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 7,
+    "fin": 8,
+    "estado": "Pendiente",
+    "descripcion": "Al acercarse a un punto marcado, que la app anuncie por voz: \"Cerca hay un baño a 15 metros\"."
+  },
+  {
+    "id": 10,
+    "tarea": "Mapear zona sur de la FES (canchas, zonas deportivas)",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 7,
+    "fin": 9,
+    "estado": "Pendiente",
+    "descripcion": "Recorrer zona deportiva, entradas/salidas, escaleras exteriores, zonas de descanso."
+  },
+  {
+    "id": 11,
+    "tarea": "Optimizar rendimiento y bateria",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 9,
+    "fin": 10,
+    "estado": "Pendiente",
+    "descripcion": "Reducir frecuencia de GPS si no se esta moviendo, optimizar fetch, minimizar datos."
+  },
+  {
+    "id": 12,
+    "tarea": "Completar mapeo de zonas faltantes",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 9,
+    "fin": 10,
+    "estado": "Pendiente",
+    "descripcion": "Revisar el mapa general, ir por las zonas que no estan cubiertas aun."
+  },
+  {
+    "id": 13,
+    "tarea": "Pruebas de usabilidad con usuarios ciegos",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 11,
+    "fin": 12,
+    "estado": "Pendiente",
+    "descripcion": "Invitar a personas con discapacidad visual a probar la app, observar dificultades."
+  },
+  {
+    "id": 14,
+    "tarea": "Corregir errores de pruebas de usabilidad",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 12,
+    "fin": 13,
+    "estado": "Pendiente",
+    "descripcion": "Ajustar la app segun el feedback de los usuarios: tamanos, contraste, navegacion, etc."
+  },
+  {
+    "id": 15,
+    "tarea": "Segunda ronda de pruebas con usuarios",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 13,
+    "fin": 14,
+    "estado": "Pendiente",
+    "descripcion": "Validar que las correcciones funcionaron, probar con otros usuarios."
+  },
+  {
+    "id": 16,
+    "tarea": "Ajustes finales de la aplicacion",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 14,
+    "fin": 14,
+    "estado": "Pendiente",
+    "descripcion": "Corregir ultimo bug, asegurar que todo funcione para la demo final."
+  },
+  {
+    "id": 17,
+    "tarea": "Redactar documento de servicio social",
+    "equipo": "Eq. 2 (Mapeo)",
+    "inicio": 15,
+    "fin": 17,
+    "estado": "Pendiente",
+    "descripcion": "Introduccion, metodologia, resultados, conclusiones, evidencias fotograficas."
+  },
+  {
+    "id": 18,
+    "tarea": "Preparar material de presentacion",
+    "equipo": "Eq. 1 (Desarrollo)",
+    "inicio": 17,
+    "fin": 18,
+    "estado": "Pendiente",
+    "descripcion": "Diapositivas, demo en vivo del funcionamiento de la app, videos cortos."
+  },
+  {
+    "id": 19,
+    "tarea": "Ensayo de presentacion final",
+    "equipo": "Ambos equipos",
+    "inicio": 19,
+    "fin": 19,
+    "estado": "Pendiente",
+    "descripcion": "Practicar la presentacion, coordinar que dice cada quien, ensayar la demo."
+  },
+  {
+    "id": 20,
+    "tarea": "Entrega final del proyecto",
+    "equipo": "Ambos equipos",
+    "inicio": 20,
+    "fin": 20,
+    "estado": "Pendiente",
+    "descripcion": "Entregar documento, app funcional, evidencias de mapeo, presentacion."
+  }
+]
