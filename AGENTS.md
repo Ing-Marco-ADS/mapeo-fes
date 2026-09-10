@@ -43,19 +43,25 @@ La **app real y robusta** (que probablemente haga otro equipo o institution) va 
 
 ### Funcionalidades de la app de recoleccion
 1. Mapa interactivo con Leaflet.js + OpenStreetMap
-2. GPS en tiempo real con watchPosition (alta precision)
-3. Tracking continuo cada 5 segundos con filtro de duplicados (min 3 metros)
-4. Encaje a caminos peatonales via GraphHopper (perfil foot)
-5. 13 tipos de puntos con colores: baño, biblioteca, edificio, acceso, alarma, escaleras, escalon, rampa, reunion, descanso, emergencia, entrada_salida, otro
-6. Selector de color antes de marcar
-7. Edicion de puntos guardados: cambiar nombre, color, eliminar
-8. Gestion de datos: ver/borrar sesiones y puntos individuales
-9. Respaldo local en localStorage si falla la conexion
-10. Monitoreo de conexion cada 10 segundos con avisos
-11. Exportar a HTML estatico con mapa visual
-12. PWA instalable en el celular
-13. Accesibilidad WCAG 2.1 AA: contraste, navegacion por teclado, aria labels
-14. Tunel Cloudflare con reconexion automatica y caffeinate
+2. GPS en tiempo real con watchPosition (alta precision, maximumAge=0)
+3. Tracking continuo cada 1 segundo con filtro de duplicados (min 1 metro)
+4. **Encaje automatico e inteligente** a caminos peatonales via GraphHopper:
+   - El encaje SOLO se usa si el camino encajado no se desvia mas de 15m del GPS crudo
+   - Si el camino no existe en OpenStreetMap, se usa el GPS crudo automaticamente
+   - NO hay boton manual de modo crudo/encajado (se maneja solo)
+5. Filtro de Kalman para suavizar ruido del GPS
+6. Deteccion y eliminacion de picos GPS (lecturas que saltan a velocidad imposible)
+7. 13 tipos de puntos con colores: baño, biblioteca, edificio, acceso, alarma, escaleras, escalon, rampa, reunion, descanso, emergencia, entrada_salida, otro
+8. Selector de color antes de marcar
+9. Edicion de puntos guardados: cambiar nombre, color, eliminar
+10. Gestion de datos: ver/borrar sesiones y puntos individuales
+11. Respaldo local en localStorage si falla la conexion
+12. Monitoreo de conexion cada 10 segundos con avisos
+13. Exportar a HTML estatico con mapa visual
+14. PWA instalable en el celular
+15. Accesibilidad WCAG 2.1 AA: contraste, navegacion por teclado, aria labels
+16. Tunel Cloudflare con reconexion automatica y caffeinate
+17. Indicador de precision GPS en tiempo real + radio de error en el mapa
 
 ### Gantt del proyecto
 - `gantt_servicio_social.xlsx` - 20 tareas, 20 semanas (Sept 2026 - Ene 2027)
@@ -120,9 +126,15 @@ mapeo-fes/
 |---------|------|-------------|
 | id | INTEGER PK | Autoincremental |
 | sesion | TEXT | ID de sesion |
-| lat | REAL | Latitud GPS |
-| lng | REAL | Longitud GPS |
+| lat | REAL | Latitud (encajada o cruda) |
+| lng | REAL | Longitud (encajada o cruda) |
 | timestamp | TEXT | ISO 8601 |
+| lat_cruda | REAL | Latitud GPS cruda (siempre la posicion real) |
+| lng_cruda | REAL | Longitud GPS cruda |
+| precision | REAL | Precision del GPS en metros |
+| velocidad | REAL | Velocidad actual en m/s |
+| heading | REAL | Direccion en grados (0-360) |
+| encajado | INTEGER | 1 si la coordenada fue encajada a un camino, 0 si es GPS crudo |
 
 ### Tipos de puntos disponibles
 `banio`, `biblioteca`, `edificio`, `acceso`, `alarma`, `escaleras`, `escalon`, `rampa`, `reunion`, `descanso`, `emergencia`, `entrada_salida`, `otro`
