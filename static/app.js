@@ -82,7 +82,14 @@ function iniciarMapa(lat, lng) {
 
 // ===== Configuracion de precision GPS =====
 // Modo de encaje: 'encajado' (GraphHopper) o 'crujo' (GPS puro)
-let modoEncaje = 'crudo';
+// Encaje automatico e inteligente:
+// - PERMITE_ENCAJE habilita/deshabilita el uso de GraphHopper (automatico)
+// - El sistema valida que el camino encajado NO se desvie demasiado del GPS crudo.
+//   Si el camino no existe en OpenStreetMap, el encaje se rechaza y se usa el GPS crudo.
+const PERMITE_ENCAJE = true;
+// Desviacion maxima permitida entre el camino encajado y el GPS crudo.
+// Si GraphHopper pega la ruta a un camino lejano (>15m), se descarta y queda GPS puro.
+const MAX_DESVIACION_ENCAJE = 15;
 // Radio de precision GPS actual (metros)
 let precisionGPS = 0;
 // Contador de lecturas GPS con baja precision
@@ -93,10 +100,11 @@ let velocidadActual = 0;
 let headingActual = 0;
 
 // Filtrado de Kalman simplificado para suavizar coordenadas GPS
+// Mas agresivo con ruido alto para eliminar picos
 const kalman = {
     lat: null, lng: null,
     varianza: 1,
-    ruido: 0.00005, // ruido de medicion (ajustable)
+    ruido: 0.0008, // ruido de medicion ajustado para eliminar picos sin perder detalle
     actualizar(lat, lng) {
         if (this.lat === null) {
             this.lat = lat;
@@ -314,23 +322,34 @@ function seleccionarColor(color) {
     mostrarToast(`Color para la siguiente marca: ${nombreColor}.`);
 }
 
-// ===== Toggle de modo de encaje GPS =====
-function toggleModoEncaje() {
-    if (modoEncaje === 'encajado') {
-        modoEncaje = 'crudo';
-        mostrarToast('Modo CRUDO activado: GPS puro sin encajar a caminos. Ideal para caminos no mapeados.');
-    } else {
-        modoEncaje = 'encajado';
-        mostrarToast('Modo ENCAJADO activado: GPS ajustado a caminos peatonales de OpenStreetMap.');
+// ===== Encaje automatico e inteligente =====
+// Funcion para distancia perpendicular de un punto a un segmento de linea
+function distanciaPuntoSegmento(px, py, ax, ay, bx, by) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const longitud2 = dx * dx + dy * dy;
+    if (longitud2 === 0) {
+        return distanciaMetros(px, py, ax, ay);
     }
-    // Actualizar texto del boton
-    const btn = document.getElementById('btn-modo-encaje');
-    if (btn) {
-        btn.textContent = modoEncaje === 'encajado' ? 'Modo: Encajado' : 'Modo: GPS Crudo';
-        btn.style.background = modoEncaje === 'encajado' ? '#3b82f6' : '#f97316';
+    // Proyeccion del punto sobre el segmento
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / longitud2));
+    const proyX = ax + t * dx;
+    const proyY = ay + t * dy;
+    // Convertir la distancia en "grados aproximados" luego a metros
+    // (la formula de Haversine ya maneja la conversion)
+    return distanciaMetros(px, py, proyX, proyY);
+}
+
+// Valida si la geometria encajada (camino de GraphHopper) se mantiene cerca
+// del tramo GPS crudo. Si se desvia demasiado, el camino no existe en el mapa
+// y usamos el GPS crudo. Devuelve true si el encaje es confiable.
+function validarEncaje(geometria, puntoA, puntoB) {
+    let maxDist = 0;
+    for (const coord of geometria) {
+        const d = distanciaPuntoSegmento(coord[0], coord[1], puntoA[0], puntoA[1], puntoB[0], puntoB[1]);
+        if (d > maxDist) maxDist = d;
     }
-    // ReiniciarKalman al cambiar de modo
-    kalman.reiniciar();
+    return maxDist <= MAX_DESVIACION_ENCAJE;
 }
 
 // Dibujar un punto marcado en el mapa (con un pin de color)
@@ -395,7 +414,7 @@ function iniciarRecorrido() {
     document.getElementById('btn-exportar').classList.add('oculto');
 
     iniciarTracking();
-    mostrarToast('Recorrido iniciado');
+    mostrarToast('Recorrido iniciado. El GPS se encaja automaticamente a los caminos cuando es confiable.');
 }
 
 // Terminar recorrido
@@ -495,14 +514,16 @@ async function sincronizarRespaldo() {
     localStorage.setItem(CLAVE_RESPALDO, JSON.stringify(respaldo));
 }
 
-// ---------- Encaje por tramos a caminos peatonales (GraphHopper) ----------
+// ---------- Encaje por tramos a caminos peatonales (automatico) ----------
 // Llamamos a /api/snap con DOS puntos consecutivos del GPS. Si el servidor
 // tiene clave de GraphHopper, devuelve la geometria de la ruta peatonal que
 // une ambos puntos siguiendo los caminos; si no, devuelve los puntos crudos.
+// El encaje SOLO se usa si el camino encajado no se desvia del GPS crudo.
 let encajesUsados = 0;
 const MAX_ENCAJES = 300; // limite por sesion para no agotar la cuota gratis
 let ultimoPuntoRaw = null;
 
+// Llama a GraphHopper encaja caminos
 function encajarTramo(anterior, actual) {
     return fetch(`/api/snap?lat1=${anterior[0]}&lng1=${anterior[1]}&lat2=${actual[0]}&lng2=${actual[1]}`)
         .then(r => r.json())
@@ -544,8 +565,12 @@ async function guardarPuntoTrack(coords, coordsCrudas) {
     }
 }
 
-// Encaja el tramo entre el punto anterior CRUDO y el punto actual, y guarda
-// la geometria resultante (que sigue los caminos) en el track.
+// Encaja el tramo entre el punto anterior CRUDO y el punto actual de forma
+// AUTOMATICA e inteligente:
+// 1. Llama a GraphHopper con los dos puntos.
+// 2. Valida que el camino resultante NO se desvie mas de 15m del GPS crudo.
+// 3. Si se desvia (el camino no existe en OSM) -> usa GPS crudo.
+// 4. Si se mantiene cerca -> usa el camino encajado (mas bonito).
 async function procesarTramo(puntoActual) {
     // El primer punto: guardarlo tal cual (no hay tramo anterior)
     if (!ultimoPuntoRaw) {
@@ -557,14 +582,21 @@ async function procesarTramo(puntoActual) {
     let geometria;
     let encajado = false;
 
-    // Si esta en modo encajado Y hay encajes disponibles, intentar GraphHopper
-    if (modoEncaje === 'encajado' && encajesUsados < MAX_ENCAJES) {
-        const res = await encajarTramo(ultimoPuntoRaw, puntoActual);
-        if (res.snapped && res.geometry && res.geometry.length) {
-            encajesUsados++;
-            geometria = res.geometry;
-            encajado = true;
-        } else {
+    // Intentar encaje automatico SOLO si esta permitido y hay cuota
+    if (PERMITE_ENCAJE && encajesUsados < MAX_ENCAJES) {
+        try {
+            const res = await encajarTramo(ultimoPuntoRaw, puntoActual);
+            // Validar que el camino encajado no se desvie del GPS crudo
+            if (res.snapped && res.geometry && res.geometry.length &&
+                validarEncaje(res.geometry, ultimoPuntoRaw, puntoActual)) {
+                encajesUsados++;
+                geometria = res.geometry;
+                encajado = true;
+            } else {
+                // El camino no existe o se desvio: usar GPS crudo
+                geometria = [puntoActual];
+            }
+        } catch (e) {
             geometria = [puntoActual];
         }
     } else {
@@ -583,6 +615,17 @@ async function procesarTramo(puntoActual) {
     ultimoPuntoRaw = puntoActual;
 }
 
+// ===== Deteccion y eliminacion de picos GPS =====
+// Un pico es una lectura que salta a una distancia imposible para el tiempo
+// transcurrido (velocidad > 8 m/s en terreno peatonal). Se descarta.
+const MAX_VELOCIDAD_PICO_MS = 8; // 8 m/s = 28.8 km/h, imposible caminando
+
+function esPicoGPS(lat, lng, ultimoLat, ultimoLng, segundos) {
+    const dist = distanciaMetros(ultimoLat, ultimoLng, lat, lng);
+    if (segundos <= 0) return false;
+    return (dist / segundos) > MAX_VELOCIDAD_PICO_MS;
+}
+
 // Tracking continuo cada 1 segundo (maxima precision)
 function iniciarTracking() {
     // Limpiar linea anterior
@@ -597,8 +640,28 @@ function iniciarTracking() {
     }
 
     let procesando = false;
+    let ultimoTiempoTick = Date.now();
+
     intervaloTrack = setInterval(() => {
         if (posicionActual && !procesando) {
+            const ahora = Date.now();
+            const segundos = (ahora - ultimoTiempoTick) / 1000;
+            ultimoTiempoTick = ahora;
+
+            // Detectar picos: si este punto salta a velocidad imposible,
+            // descartarlo y NO guardar nada (esperar la siguiente lectura)
+            if (ultimoTrackGuardado && esPicoGPS(
+                posicionActual.latitude,
+                posicionActual.longitude,
+                ultimoTrackGuardado[0],
+                ultimoTrackGuardado[1],
+                segundos
+            )) {
+                // Si el GPS tiene precision mala, el pico puede ser ruido.
+                // Mejor ignorar esta lectura por completo.
+                return;
+            }
+
             // Aplicar filtro de Kalman para suavizar ruido del GPS
             const suavizado = kalman.actualizar(
                 posicionActual.latitude,
@@ -612,12 +675,9 @@ function iniciarTracking() {
                 : Infinity;
 
             // Guardar si nos movimos la distancia minima o si es el primer punto
-            // Ademas: si la precision del GPS es mala (>15m), guardar de todas formas
-            // para no perder el camino en senal debil
             const debeGuardar = dist >= DISTANCIA_MINIMA_TRACK || trackPuntos.length === 0;
-            const senalMala = precisionGPS > 15;
 
-            if (debeGuardar || senalMala) {
+            if (debeGuardar) {
                 ultimoTrackGuardado = coord;
                 procesando = true;
                 procesarTramo(coord)
