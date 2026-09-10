@@ -53,13 +53,27 @@ def init_db():
             sesion TEXT NOT NULL,
             lat REAL NOT NULL,
             lng REAL NOT NULL,
-            timestamp TEXT NOT NULL
+            timestamp TEXT NOT NULL,
+            lat_cruda REAL,
+            lng_cruda REAL,
+            precision REAL,
+            velocidad REAL,
+            heading REAL,
+            encajado INTEGER DEFAULT 0
         )
     ''')
     # Migracion: agregar columna 'color' a puntos si no existe (bases viejas)
     cols = [r[1] for r in conn.execute('PRAGMA table_info(puntos)').fetchall()]
     if 'color' not in cols:
         conn.execute('ALTER TABLE puntos ADD COLUMN color TEXT')
+    # Migracion: agregar columnas GPS a tracks si no existen
+    cols_track = [r[1] for r in conn.execute('PRAGMA table_info(tracks)').fetchall()]
+    for col in ['lat_cruda', 'lng_cruda', 'precision', 'velocidad', 'heading', 'encajado']:
+        if col not in cols_track:
+            if col == 'encajado':
+                conn.execute(f'ALTER TABLE tracks ADD COLUMN {col} INTEGER DEFAULT 0')
+            else:
+                conn.execute(f'ALTER TABLE tracks ADD COLUMN {col} REAL')
     conn.commit()
     conn.close()
 
@@ -96,8 +110,17 @@ def guardar_track():
     data = request.json
     conn = get_db()
     conn.execute(
-        'INSERT INTO tracks (sesion, lat, lng, timestamp) VALUES (?, ?, ?, ?)',
-        (data['sesion'], data['lat'], data['lng'], data['timestamp'])
+        '''INSERT INTO tracks (sesion, lat, lng, timestamp, lat_cruda, lng_cruda, precision, velocidad, heading, encajado)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (
+            data['sesion'], data['lat'], data['lng'], data['timestamp'],
+            data.get('lat_cruda', data['lat']),
+            data.get('lng_cruda', data['lng']),
+            data.get('precision'),
+            data.get('velocidad'),
+            data.get('heading'),
+            1 if data.get('encajado') else 0
+        )
     )
     conn.commit()
     conn.close()

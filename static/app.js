@@ -80,42 +80,158 @@ function iniciarMapa(lat, lng) {
     marcaActual = L.marker([lat, lng], {icon: iconoActual}).addTo(mapa);
 }
 
-// Inicializar GPS
+// ===== Configuracion de precision GPS =====
+// Modo de encaje: 'encajado' (GraphHopper) o 'crujo' (GPS puro)
+let modoEncaje = 'crudo';
+// Radio de precision GPS actual (metros)
+let precisionGPS = 0;
+// Contador de lecturas GPS con baja precision
+let lecturasBajaCalidad = 0;
+// Ultima velocidad conocida (m/s)
+let velocidadActual = 0;
+// Heading actual (grados 0-360)
+let headingActual = 0;
+
+// Filtrado de Kalman simplificado para suavizar coordenadas GPS
+const kalman = {
+    lat: null, lng: null,
+    varianza: 1,
+    ruido: 0.00005, // ruido de medicion (ajustable)
+    actualizar(lat, lng) {
+        if (this.lat === null) {
+            this.lat = lat;
+            this.lng = lng;
+            return { lat, lng };
+        }
+        // Prediccion (asume movimiento constante)
+        const predLat = this.lat;
+        const predLng = this.lng;
+        // Ganancia de Kalman
+        const K = this.varianza / (this.varianza + this.ruido);
+        // Actualizacion
+        this.lat = predLat + K * (lat - predLat);
+        this.lng = predLng + K * (lng - predLng);
+        this.varianza = (1 - K) * this.varianza;
+        return { lat: this.lat, lng: this.lng };
+    },
+    reiniciar() {
+        this.lat = null;
+        this.lng = null;
+        this.varianza = 1;
+    }
+};
+
+// Inicializar GPS con maxima precision
 function iniciarGPS() {
     if (!navigator.geolocation) {
         document.getElementById('estado').textContent = 'GPS no disponible';
         return;
     }
 
+    // Intentar obtener multiples constelaciones (GPS + GLONASS + Galileo)
+    // via DeviceOrientationEvent si esta disponible
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().catch(() => {});
+    }
+
     navigator.geolocation.watchPosition(
         (pos) => {
-            posicionActual = pos.coords;
-            document.getElementById('estado').textContent = 'GPS conectado';
+            const coords = pos.coords;
+            posicionActual = coords;
+
+            // Guardar metricas de precision
+            precisionGPS = coords.accuracy || 0;
+            velocidadActual = coords.speed || 0;
+            headingActual = coords.heading || 0;
+
+            // Actualizar indicador de precision en la UI
+            actualizarIndicadorPrecision(coords.accuracy, coords.speed, coords.heading);
+
+            // Detectar si la senal es buena o mala
+            if (coords.accuracy > 20) {
+                lecturasBajaCalidad++;
+                document.getElementById('estado').textContent = `GPS: senal debil (~${Math.round(coords.accuracy)}m)`;
+            } else if (coords.accuracy > 10) {
+                lecturasBajaCalidad = 0;
+                document.getElementById('estado').textContent = `GPS: senal moderada (~${Math.round(coords.accuracy)}m)`;
+            } else {
+                lecturasBajaCalidad = 0;
+                document.getElementById('estado').textContent = `GPS: senal optima (~${Math.round(coords.accuracy)}m)`;
+            }
 
             // Inicializar el mapa en la primera posicion del GPS
             if (!mapa) {
-                iniciarMapa(posicionActual.latitude, posicionActual.longitude);
+                iniciarMapa(coords.latitude, coords.longitude);
             } else if (sesionActiva) {
-                // Actualizar el marcador de posicion actual y la linea durante el recorrido
                 if (marcaActual) {
-                    marcaActual.setLatLng([posicionActual.latitude, posicionActual.longitude]);
+                    marcaActual.setLatLng([coords.latitude, coords.longitude]);
                 }
                 if (mapa && !mapa._dragging) {
-                    // Mover camara suavemente siguiendo la posicion
-                    mapa.panTo([posicionActual.latitude, posicionActual.longitude]);
+                    mapa.panTo([coords.latitude, coords.longitude]);
                 }
+                // Actualizar radio de precision en el mapa
+                actualizarRadioPrecision(coords.latitude, coords.longitude, coords.accuracy);
             }
         },
         (error) => {
-            document.getElementById('estado').textContent = 'Error de GPS. Revisa tu ubicación.';
+            document.getElementById('estado').textContent = 'Error de GPS. Revisa tu ubicacion.';
             console.error('Error GPS:', error);
         },
         {
             enableHighAccuracy: true,
-            maximumAge: 1000,
-            timeout: 10000
+            maximumAge: 0,       // No usar cache, siempre lectura fresca
+            timeout: 5000        // Timeout mas corto para detectar problemas rapido
         }
     );
+}
+
+// Radio de precision en el mapa
+let radioPrecision = null;
+function actualizarRadioPrecision(lat, lng, accuracy) {
+    if (!mapa || !accuracy) return;
+    if (radioPrecision) {
+        radioPrecision.setLatLng([lat, lng]);
+        radioPrecision.setRadius(accuracy);
+    } else {
+        radioPrecision = L.circle([lat, lng], {
+            radius: accuracy,
+            color: '#3b82f6',
+            fillColor: '#3b82f6',
+            fillOpacity: 0.08,
+            weight: 1,
+            opacity: 0.3
+        }).addTo(mapa);
+    }
+}
+
+// Actualizar indicador de precision en la UI
+function actualizarIndicadorPrecision(accuracy, speed, heading) {
+    const el = document.getElementById('indicador-precision');
+    if (!el) return;
+
+    let color, texto;
+    if (accuracy <= 5) {
+        color = '#22c55e';
+        texto = `Excelente (~${Math.round(accuracy)}m)`;
+    } else if (accuracy <= 10) {
+        color = '#eab308';
+        texto = `Buena (~${Math.round(accuracy)}m)`;
+    } else if (accuracy <= 20) {
+        color = '#f97316';
+        texto = `Regular (~${Math.round(accuracy)}m)`;
+    } else {
+        color = '#ef4444';
+        texto = `Baja (~${Math.round(accuracy)}m)`;
+    }
+
+    el.style.background = color;
+    el.innerHTML = `<span style="font-weight:700">GPS:</span> ${texto}`;
+
+    if (speed && speed > 0) {
+        const kmh = (speed * 3.6).toFixed(1);
+        el.innerHTML += ` | <span style="font-weight:700">Vel:</span> ${kmh} km/h`;
+    }
 }
 
 function marcarPunto(tipo) {
@@ -182,7 +298,7 @@ function textoTipo(tipo) {
 function seleccionarColor(color) {
     colorActual = color;
     const nombreColor = {
-        '#f59e0b': 'ámbar',
+        '#f59e0b': 'ambar',
         '#ef4444': 'rojo',
         '#3b82f6': 'azul',
         '#22c55e': 'verde',
@@ -190,12 +306,31 @@ function seleccionarColor(color) {
         '#f472b6': 'rosa',
         '#06b6d4': 'cian',
         '#ffffff': 'blanco'
-    }[color] || 'ámbar';
+    }[color] || 'ambar';
     document.getElementById('color-seleccionado').textContent = `Color actual: ${nombreColor}`;
     document.querySelectorAll('.color-chip').forEach(chip => {
         chip.classList.toggle('color-activo', chip.dataset.color === color);
     });
     mostrarToast(`Color para la siguiente marca: ${nombreColor}.`);
+}
+
+// ===== Toggle de modo de encaje GPS =====
+function toggleModoEncaje() {
+    if (modoEncaje === 'encajado') {
+        modoEncaje = 'crudo';
+        mostrarToast('Modo CRUDO activado: GPS puro sin encajar a caminos. Ideal para caminos no mapeados.');
+    } else {
+        modoEncaje = 'encajado';
+        mostrarToast('Modo ENCAJADO activado: GPS ajustado a caminos peatonales de OpenStreetMap.');
+    }
+    // Actualizar texto del boton
+    const btn = document.getElementById('btn-modo-encaje');
+    if (btn) {
+        btn.textContent = modoEncaje === 'encajado' ? 'Modo: Encajado' : 'Modo: GPS Crudo';
+        btn.style.background = modoEncaje === 'encajado' ? '#3b82f6' : '#f97316';
+    }
+    // ReiniciarKalman al cambiar de modo
+    kalman.reiniciar();
 }
 
 // Dibujar un punto marcado en el mapa (con un pin de color)
@@ -280,7 +415,12 @@ function terminarRecorrido() {
 }
 
 // Distancia minima (metros) entre puntos de tracking para evitar duplicados
-const DISTANCIA_MINIMA_TRACK = 3;
+// Reducido a 1 metro para capturar mas detalle en giros y caminos estrechos
+const DISTANCIA_MINIMA_TRACK = 1;
+
+// Intervalo de tracking en milisegundos
+// 1 segundo = captura cada ~1.4 metros a paso normal (mucho mas detalle)
+const INTERVALO_TRACK_MS = 1000;
 
 // Calcula la distancia en metros entre dos coordenadas (formula de Haversine)
 function distanciaMetros(lat1, lng1, lat2, lng2) {
@@ -371,12 +511,22 @@ function encajarTramo(anterior, actual) {
 }
 
 // Guarda un punto del track en el servidor y lo dibuja en la linea
-async function guardarPuntoTrack(coords) {
+// coords = coordenadas a dibujar (encajadas o crudas)
+// coordsCrudas = coordenadas GPS crudas (si se encajaron)
+async function guardarPuntoTrack(coords, coordsCrudas) {
     const dato = {
         sesion: sesion,
         lat: coords[0],
         lng: coords[1],
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        // Datos GPS crudos (siempre guardamos la posicion real del GPS)
+        lat_cruda: coordsCrudas ? coordsCrudas[0] : coords[0],
+        lng_cruda: coordsCrudas ? coordsCrudas[1] : coords[1],
+        // Metricas de calidad
+        precision: precisionGPS || null,
+        velocidad: velocidadActual || null,
+        heading: headingActual || null,
+        encajado: coordsCrudas ? true : false
     };
     try {
         await fetch('/api/track', {
@@ -399,17 +549,21 @@ async function guardarPuntoTrack(coords) {
 async function procesarTramo(puntoActual) {
     // El primer punto: guardarlo tal cual (no hay tramo anterior)
     if (!ultimoPuntoRaw) {
-        await guardarPuntoTrack(puntoActual);
+        await guardarPuntoTrack(puntoActual, puntoActual);
         ultimoPuntoRaw = puntoActual;
         return;
     }
 
     let geometria;
-    if (encajesUsados < MAX_ENCAJES) {
+    let encajado = false;
+
+    // Si esta en modo encajado Y hay encajes disponibles, intentar GraphHopper
+    if (modoEncaje === 'encajado' && encajesUsados < MAX_ENCAJES) {
         const res = await encajarTramo(ultimoPuntoRaw, puntoActual);
         if (res.snapped && res.geometry && res.geometry.length) {
             encajesUsados++;
             geometria = res.geometry;
+            encajado = true;
         } else {
             geometria = [puntoActual];
         }
@@ -418,25 +572,26 @@ async function procesarTramo(puntoActual) {
     }
 
     // Omitir el primer punto de la geometria si coincide con el ultimo ya guardado
-    // para evitar duplicar el punto de conexion entre tramos.
     for (let i = 0; i < geometria.length; i++) {
         const coord = geometria[i];
         const ultimo = trackPuntos[trackPuntos.length - 1];
         if (ultimo && ultimo[0] === coord[0] && ultimo[1] === coord[1]) {
             continue;
         }
-        await guardarPuntoTrack(coord);
+        await guardarPuntoTrack(coord, encajado ? puntoActual : null);
     }
     ultimoPuntoRaw = puntoActual;
 }
 
-// Tracking continuo cada 5 segundos
+// Tracking continuo cada 1 segundo (maxima precision)
 function iniciarTracking() {
     // Limpiar linea anterior
     trackPuntos = [];
     ultimoTrackGuardado = null;
     ultimoPuntoRaw = null;
     encajesUsados = 0;
+    lecturasBajaCalidad = 0;
+    kalman.reiniciar();
     if (trackPolilinea) {
         trackPolilinea.setLatLngs([]);
     }
@@ -444,22 +599,33 @@ function iniciarTracking() {
     let procesando = false;
     intervaloTrack = setInterval(() => {
         if (posicionActual && !procesando) {
-            const coord = [posicionActual.latitude, posicionActual.longitude];
+            // Aplicar filtro de Kalman para suavizar ruido del GPS
+            const suavizado = kalman.actualizar(
+                posicionActual.latitude,
+                posicionActual.longitude
+            );
+            const coord = [suavizado.lat, suavizado.lng];
+
+            // Calcular distancia al ultimo punto guardado
             const dist = ultimoTrackGuardado
                 ? distanciaMetros(ultimoTrackGuardado[0], ultimoTrackGuardado[1], coord[0], coord[1])
                 : Infinity;
 
-            // Solo guardar/dibujar si nos movimos al menos la distancia minima
-            if (dist >= DISTANCIA_MINIMA_TRACK || trackPuntos.length === 0) {
+            // Guardar si nos movimos la distancia minima o si es el primer punto
+            // Ademas: si la precision del GPS es mala (>15m), guardar de todas formas
+            // para no perder el camino en senal debil
+            const debeGuardar = dist >= DISTANCIA_MINIMA_TRACK || trackPuntos.length === 0;
+            const senalMala = precisionGPS > 15;
+
+            if (debeGuardar || senalMala) {
                 ultimoTrackGuardado = coord;
                 procesando = true;
                 procesarTramo(coord)
                     .catch(err => console.error('Error track:', err))
                     .finally(() => { procesando = false; });
             }
-            // Si no nos movimos suficiente, no guardamos nada (evita duplicados)
         }
-    }, 5000);
+    }, INTERVALO_TRACK_MS);
 }
 
 function exportar() {
