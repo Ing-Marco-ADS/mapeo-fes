@@ -14,3 +14,6 @@ cloudflared
 
 # Archivos temporales del sistema
 .DS_Store
+
+# Bloqueos de LibreOffice
+.~lock*
