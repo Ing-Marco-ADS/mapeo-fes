@@ -1,0 +1,160 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f6f9;
+    color: #1a1a1a;
+    min-height: 100vh;
+}
+
+.oculto { display: none; }
+
+.saltar-al-contenido {
+    position: absolute; left: -9999px; top: 0; z-index: 100;
+    background: #333; color: #fff; padding: 12px 16px; text-decoration: none;
+}
+.saltar-al-contenido:focus-visible { left: 0; }
+
+:focus-visible { outline: 3px solid #7c3aed; outline-offset: 2px; }
+
+.encabezado {
+    background: #1e3a5f;
+    color: #fff;
+    padding: 18px 16px;
+    text-align: center;
+}
+.encabezado h1 { font-size: 20px; letter-spacing: 0.5px; }
+
+.estado-gps {
+    margin-top: 8px;
+    font-size: 14px;
+    background: #2d4c77;
+    border-radius: 999px;
+    padding: 6px 14px;
+    display: inline-block;
+}
+
+.ultimo-anuncio {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #dbe7f5;
+    min-height: 18px;
+}
+
+.principal {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 12px 12px 24px;
+}
+
+#mapa-nav {
+    height: 55vh;
+    min-height: 300px;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.12);
+    z-index: 1;
+}
+
+.paneles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.btn-grande {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 64px;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,.15);
+}
+.btn-grande:active { transform: scale(0.98); }
+
+.btn-primario { background: #16a34a; }
+.btn-primario:active { background: #15803d; }
+.btn-secundario { background: #2563eb; }
+.btn-secundario:active { background: #1d4ed8; }
+.btn-terciario { background: #64748b; }
+.btn-terciario:active { background: #475569; }
+.btn-peligro { background: #dc2626; }
+.btn-peligro:active { background: #b91c1c; }
+
+.emoji { font-size: 22px; }
+
+/* ---- Dialogos ---- */
+.modal {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,.55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.modal-contenido {
+    background: #fff;
+    border-radius: 14px;
+    max-width: 520px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 18px;
+}
+.modal-contenido h2 { color: #1e3a5f; margin-bottom: 6px; }
+
+.instructivo { font-size: 13px; color: #555; margin: 8px 0; }
+
+.modal-acciones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.modal-acciones button {
+    padding: 12px 22px; border: none; border-radius: 8px;
+    font-size: 15px; font-weight: 600; background: #e2e8f0; color: #1a1a1a; cursor: pointer;
+}
+
+.lista-destinos { margin-top: 10px; }
+.grupo-destino { margin-bottom: 14px; }
+.grupo-destino h3 { font-size: 15px; color: #1e3a5f; margin-bottom: 8px; }
+.btn-destino {
+    display: block; width: 100%; min-height: 48px;
+    padding: 10px 12px; margin-bottom: 6px;
+    border: 1px solid #cbd5e1; border-radius: 8px;
+    background: #f8fafc; color: #1a1a1a;
+    font-size: 15px; text-align: left; cursor: pointer;
+}
+.btn-destino:active { background: #e2e8f0; }
+
+/* ---- Pantalla de navegacion ---- */
+.pantalla-nav {
+    position: fixed; inset: 0; z-index: 150;
+    background: #12283f;
+    color: #fff;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 28px;
+    padding: 24px;
+}
+.pantalla-nav.oculto { display: none; }
+.nav-info { text-align: center; }
+.nav-destino { font-size: 20px; font-weight: 700; }
+.nav-distancia { font-size: 30px; font-weight: 800; margin-top: 10px; color: #4ade80; }
+
+/* ---- Toast ---- */
+#toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #111827; color: #fff;
+    padding: 12px 18px; border-radius: 10px; font-size: 14px;
+    opacity: 0; pointer-events: none; transition: opacity .3s;
+    z-index: 300; max-width: 90vw; text-align: center;
+}
+#toast.visible { opacity: 1; }
+
+/* Media query u pantallas grandes */
+@media (min-width: 700px) {
+    .paneles { grid-template-columns: repeat(4, 1fr); }
+    #mapa-nav { height: 62vh; }
+}

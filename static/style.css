@@ -67,6 +67,19 @@ body {
     border: 1px solid #cbd5e1;
 }
 
+.enlace-app-navegacion {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 10px 16px;
+    background: #1e3a5f;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+}
+.enlace-app-navegacion:active { background: #152a47; }
+
 main {
     padding: 16px;
     max-width: 520px;

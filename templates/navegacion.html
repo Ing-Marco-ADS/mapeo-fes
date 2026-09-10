@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1e3a5f">
+    <title>Mapeo FES — Navegación asistida</title>
+    <link rel="stylesheet" href="/static/navegacion.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <a class="saltar-al-contenido" href="#principal">Saltar al contenido principal</a>
+
+    <header class="encabezado">
+        <h1>Mapeo FES · Navegación</h1>
+        <p id="estado-gps" class="estado-gps" role="status" aria-live="polite">Esperando señal GPS…</p>
+        <p id="ultimo-anuncio" class="ultimo-anuncio" role="status" aria-live="assertive"></p>
+    </header>
+
+    <main id="principal" class="principal">
+        <!-- Mapa -->
+        <section id="mapa-seccion" aria-label="Mapa de la facultad con los puntos de interes">
+            <div id="mapa-nav"></div>
+        </section>
+
+        <!-- Panel de accion por voz -->
+        <section class="paneles" aria-label="Controles de navegacion por voz">
+            <button id="btn-escuchar" class="btn-grande btn-primario" type="button" onclick="alternarEscucha()">
+                <span class="emoji" aria-hidden="true">🔊</span> Escuchar alrededores
+            </button>
+
+            <button id="btn-que-hay" class="btn-grande btn-secundario" type="button" onclick="anunciarCercanos()">
+                <span class="emoji" aria-hidden="true">📍</span> ¿Qué hay cerca?
+            </button>
+
+            <button id="btn-destino" class="btn-grande btn-secundario" type="button" onclick="abrirDestinos()">
+                <span class="emoji" aria-hidden="true">🎯</span> Ir a un destino
+            </button>
+
+            <button id="btn-repetir" class="btn-grande btn-terciario" type="button" onclick="repetirAnuncio()">
+                <span class="emoji" aria-hidden="true">🔁</span> Repetir
+            </button>
+        </section>
+    </main>
+
+    <!-- Panel de destinos (dialogo accesible) -->
+    <div id="dialogo-destinos" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="titulo-destinos" aria-hidden="true">
+        <div class="modal-contenido">
+            <h2 id="titulo-destinos">Elige un destino</h2>
+            <p class="instructivo">Los destinos se agrupan por tipo. Pulsa uno para iniciar la navegación guiada por voz.</p>
+            <div id="lista-destinos" class="lista-destinos" role="list"></div>
+            <div class="modal-acciones">
+                <button type="button" onclick="cerrarDestinos()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pantalla de navegacion activa -->
+    <div id="pantalla-nav" class="pantalla-nav oculto" aria-hidden="true">
+        <div class="nav-info">
+            <p class="nav-destino" id="nav-destino-texto">Destino</p>
+            <p class="nav-distancia" id="nav-distancia-texto" aria-live="polite">—</p>
+        </div>
+        <button id="btn-cancelar-nav" class="btn-grande btn-peligro" type="button" onclick="cancelarNavegacion()">
+            <span class="emoji" aria-hidden="true">✖</span> Cancelar navegación
+        </button>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <script src="/static/navegacion.js"></script>
+</body>
+</html>

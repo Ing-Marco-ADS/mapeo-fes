@@ -81,6 +81,10 @@ def init_db():
 def index():
     return send_from_directory('templates', 'index.html')
 
+@app.route('/navegacion')
+def navegacion():
+    return send_from_directory('templates', 'navegacion.html')
+
 @app.route('/static/<path:filename>')
 def static_files(filename):
     return send_from_directory('static', filename)
