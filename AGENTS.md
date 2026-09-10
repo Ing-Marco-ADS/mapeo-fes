@@ -1,22 +1,66 @@
 # AGENTS.md — Mapeo FES (Servicio Social)
 
-## Descripcion general
+## Contexto del proyecto
 
-App web para mapear la FES (Facultad de Estudios Superiores) como servicio social.
-El objetivo es crear un mapa accesible para personas ciegas/with discapacidad visual
-que muestre: edificios, escaleras, rampas, baños, salidas de emergencia,
-puntos de reunion, zonas de descanso, entradas/salidas, y mas.
+### Que somos
+4 personas haciendo **servicio social** en la FES (Facultad de Estudios Superiores).
+Trabajamos 4 horas al dia, 2 equipos de 2 personas.
+La app es para **mapear la FES** con el objetivo de crear un mapa accesible para
+personas ciegas/with discapacidad visual.
 
-La app corre en el celular del usuario y se conecta a una Mac que hace de servidor
-a traves de un tunel Cloudflare.
+### IMPORTANTE: Que es esta app y que NO es
+**Esta app NO es el producto final.** Es el **esqueleto/esqueleto-herramienta**
+que nos sirve para:
+1. **Salir a la FES a mapear** y guardar datos GPS (caminos, puntos de interes)
+2. **Procesar esos datos** para tenerlos listos para la app real
+3. **Visualizar los datos** en un mapa estatico para mostrar al jefe/compas
 
-## Equipo de trabajo
+La **app real y robusta** (que probablemente haga otro equipo o institution) va a:
+- Navegacion por voz en tiempo real
+- Deteccion de obstaculos cercanos
+- Rutas accesibles entre puntos
+- Interfaz optimizada para lectores de pantalla
+- App movil nativa o hibrida
 
-- 4 personas, 2 equipos de 2
-- 4 horas diarias de trabajo
-- Equipo 1 (Marco + 1): Desarrollo tecnico (app, backend, GPS, features)
-- Equipo 2 (2 personas): Mapeo en campo, pruebas con usuarios, documentacion
+### Equipo de trabajo
+- **Equipo 1 (Marco + 1):** Desarrollo tecnico (app, backend, GPS, features)
+- **Equipo 2 (2 personas):** Mapeo en campo, pruebas con usuarios, documentacion
 - **IMPORTANTE:** Responder SIEMPRE en espanol, con ortografia correcta (tildes, ñ, signos ¿¡)
+
+## Que hemos hecho hasta ahora
+
+### Sesiones de mapeo completadas (3 sesiones, 2 dias)
+1. `sesion-20260901-094552` - 18 puntos, 212 tracks (~25 min) - Primer recorrido
+2. `sesion-20260901-101126` - 58 puntos, 422 tracks (~42 min) - Segundo recorrido
+3. `sesion-20260902-100651` - 77 puntos, 447 tracks (~46 min) - Tercer recorrido
+
+**Total:** 153 puntos mapeados, 1081 tracks de GPS
+
+### Archivos de datos generados
+- `mapeo_20260902.html` - Mapa estatico de la sesion de hoy (77 puntos, 447 tracks)
+- `recorrido_fes.html` - Mapa estatico de la primera sesion (58 puntos, 422 tracks)
+- `mapeo.db` - Base de datos SQLite con todas las sesiones
+
+### Funcionalidades de la app de recoleccion
+1. Mapa interactivo con Leaflet.js + OpenStreetMap
+2. GPS en tiempo real con watchPosition (alta precision)
+3. Tracking continuo cada 5 segundos con filtro de duplicados (min 3 metros)
+4. Encaje a caminos peatonales via GraphHopper (perfil foot)
+5. 13 tipos de puntos con colores: baño, biblioteca, edificio, acceso, alarma, escaleras, escalon, rampa, reunion, descanso, emergencia, entrada_salida, otro
+6. Selector de color antes de marcar
+7. Edicion de puntos guardados: cambiar nombre, color, eliminar
+8. Gestion de datos: ver/borrar sesiones y puntos individuales
+9. Respaldo local en localStorage si falla la conexion
+10. Monitoreo de conexion cada 10 segundos con avisos
+11. Exportar a HTML estatico con mapa visual
+12. PWA instalable en el celular
+13. Accesibilidad WCAG 2.1 AA: contraste, navegacion por teclado, aria labels
+14. Tunel Cloudflare con reconexion automatica y caffeinate
+
+### Gantt del proyecto
+- `gantt_servicio_social.xlsx` - 20 tareas, 20 semanas (Sept 2026 - Ene 2027)
+- `gantt_tareas.json` - Datos en JSON para actualizar programaticamente
+- `generar_gantt.py` - Script para regenerar el Excel
 
 ## Stack tecnico
 
@@ -39,39 +83,21 @@ mapeo-fes/
 │   ├── style.css            # Estilos CSS (WCAG 2.1 AA)
 │   ├── icon.png             # Icono PWA
 │   └── manifest.webmanifest # Configuracion PWA
-├── recorrido_fes.html       # Mapa estatico exportable (para mostrar al jefe)
+├── recorrido_fes.html       # Mapa estatico exportable (sesion 1)
+├── mapeo_20260902.html      # Mapa estatico exportable (sesion 3)
 ├── exportar_datos.py        # Script para exportar DB a JSON
 ├── iniciar.sh               # Servidor local (misma WiFi)
 ├── iniciar_celular.sh       # Servidor con tunel Cloudflare + caffeinate
 ├── requirements.txt         # flask==3.0.0, flask-cors==4.0.0
-├── gantt_servicio_social.xlsx # Gantt del proyecto (actualizar cuando se complete algo)
-├── gantt_tareas.json        # Datos del Gantt en JSON (para programaticamente actualizar)
+├── gantt_servicio_social.xlsx # Gantt del proyecto
+├── gantt_tareas.json        # Datos del Gantt en JSON
 ├── generar_gantt.py         # Script que genera el Excel del Gantt
+├── gen_mapa.py              # Script para generar mapas HTML desde la DB
 ├── .graphhopper_key         # Clave API de GraphHopper (NO subir a GitHub)
 ├── .gitignore               # Excluye: .graphhopper_key, mapeo.db, venv/, __pycache__, cloudflared
 ├── mapeo.db                 # Base de datos SQLite (se crea sola, no subir)
 ├── venv/                    # Entorno virtual (no subir)
 └── cloudflared              # Binario del tunel (no subir, descargar aparte)
-```
-
-## Como levantar la app
-
-### Opcion A: Local (misma WiFi)
-```bash
-cd mapeo-fes
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python app.py
-# Abrir http://localhost:5000 en el navegador
-```
-
-### Opcion B: Con tunel Cloudflare (datos moviles del celular)
-```bash
-# Necesitas el binario cloudflared en la carpeta del proyecto
-./iniciar_celular.sh
-# Te mostrara una URL tipo https://xxx.trycloudflare.com
-# Abrir esa URL en el navegador del celular
 ```
 
 ## Base de datos (SQLite)
@@ -124,43 +150,34 @@ Formato: `sesion-AAAAmmdd-HHMMSS` (ej: `sesion-20260901-101126`)
 | DELETE | `/api/sesion/<sesion>` | Borrar toda una sesion |
 | DELETE | `/api/todo` | Borrar toda la base de datos |
 
-## Funcionalidades implementadas
+## Como levantar la app
 
-1. **Mapa interactivo** con Leaflet.js + OpenStreetMap
-2. **GPS en tiempo real** con watchPosition (alta precision)
-3. **Tracking continuo** cada 5 segundos con filtro de duplicados (min 3 metros)
-4. **Encaje a caminos peatonales** via GraphHopper (perfil foot)
-5. **13 tipos de puntos** con colores: baño, biblioteca, edificio, acceso, alarma, escaleras, escalon, rampa, reunion, descanso, emergencia, entrada_salida, otro
-6. **Selector de color** antes de marcar (8 colores)
-7. **Edicion de puntos** guardados: cambiar nombre, color, eliminar
-8. **Gestion de datos**: ver/borrar sesiones y puntos individuales
-9. **Respaldo local** en localStorage si falla la conexion
-10. **Monitoreo de conexion** cada 10 segundos con avisos
-11. **Exportar a HTML estatico** (recorrido_fes.html) con mapa visual
-12. **PWA** instalable en el celular
-13. **Accesibilidad WCAG 2.1 AA**: contraste, navegacion por teclado, aria labels, toast con aria-live
-14. **Tunel Cloudflare** con reconexion automatica y caffeinate para evitar que la Mac se duerma
+### Opcion A: Local (misma WiFi)
+```bash
+cd mapeo-fes
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python app.py
+# Abrir http://localhost:5000 en el navegador
+```
 
-## Funcionalidades pendientes (ver Gantt)
+### Opcion B: Con tunel Cloudflare (datos moviles del celular)
+```bash
+# Necesitas el binario cloudflared en la carpeta del proyecto
+./iniciar_celular.sh
+# Te mostrara una URL tipo https://xxx.trycloudflare.com
+# Abrir esa URL en el navegador del celular
+```
 
-- Compartir recorrido via QR/WhatsApp
-- Narracion por voz de puntos cercanos al acercarse
-- Optimizacion de bateria/rendimiento
-- Pruebas de usabilidad con personas ciegas
-- Documento de servicio social
-- Presentacion final
+## GraphHopper
 
-## Gantt del proyecto
-
-El archivo `gantt_servicio_social.xlsx` contiene las 20 tareas del proyecto.
-El archivo `gantt_tareas.json` tiene los datos en JSON para poder actualizar
-el Gantt programaticamente.
-
-### Para actualizar el Gantt cuando se complete una tarea:
-1. Leer `gantt_tareas.json`
-2. Cambiar el `"estado"` de la tarea a `"Completada"`
-3. Ejecutar `python generar_gantt.py` para regenerar el Excel
-4. Hacer commit y push
+- Clave en `.graphhopper_key` (NO subir a GitHub)
+- Perfil: `foot` (peatonal)
+- Cuota gratis: ~500 llamadas/dia
+- Limite implementado: 300 encajes por sesion
+- Sin clave: la app funciona pero el track queda como linea cruda del GPS
+- Endpoint: `/api/snap?lat1&lng1&lat2&lng2` (devuelve geometria encajada)
 
 ## Convenciones de codigo
 
@@ -172,15 +189,6 @@ el Gantt programaticamente.
 - **Objetivo tactil minimo:** 44x44 px para botones en celular
 - **Idioma del codigo:** comentarios y variables en espanol
 - **Idioma de la UI:** espanol
-
-## GraphHopper
-
-- Clave en `.graphhopper_key` (NO subir a GitHub)
-- Perfil: `foot` (peatonal)
-- Cuota gratis: ~500 llamadas/dia
-- Limite implementado: 300 encajes por sesion
-- Sin clave: la app funciona pero el track queda como linea cruda del GPS
-- Endpoint: `/api/snap?lat1&lng1&lat2&lng2` (devuelve geometria encajada)
 
 ## Tareas comunes
 
@@ -203,6 +211,13 @@ el Gantt programaticamente.
 2. Agregar la funcion fetch en `app.js` (ej: `actualizarDescripcion`)
 3. Llamar desde la UI correspondiente
 
+### Generar un mapa HTML desde la DB
+```bash
+# Editar gen_mapa.py con la sesion deseada
+python gen_mapa.py
+# Abrir el archivo HTML generado en el navegador
+```
+
 ### Subir cambios a GitHub
 ```bash
 git add -A
@@ -211,7 +226,7 @@ git push origin main
 ```
 
 ### Actualizar el Gantt
-1. Editar `gantt_tareas.json` (cambiar estado de la tarea)
+1. Editar `gantt_tareas.json` (cambiar estado de la tarea a "Completada")
 2. Ejecutar `python generar_gantt.py`
 3. `git add gantt_servicio_social.xlsx gantt_tareas.json`
 4. `git commit -m "Actualiza Gantt: [tarea completada]"`
@@ -232,3 +247,23 @@ El script `iniciar_celular.sh` maneja esto automaticamente:
 - Solo genera link nuevo si cloudflared realmente murio
 - La app del celular detecta la perdida de conexion y avisa
 - Los datos pendientes se sincronizan cuando se recupera la conexion
+
+## Cómo usar OpenCode con este proyecto
+
+1. Clonar el repo: `git clone https://github.com/Ing-Marco-ADS/mapeo-fes.git`
+2. Abrir OpenCode en la carpeta del proyecto
+3. OpenCode leera este AGENTS.md automaticamente y tendra todo el contexto
+4. Puede ayudarte con:
+   - Modificar el backend (app.py)
+   - Modificar el frontend (app.js, index.html, style.css)
+   - Generar mapas HTML desde la DB
+   - Actualizar el Gantt
+   - Subir cambios a GitHub
+   - Cualquier tarea tecnica del proyecto
+
+## Recordatorio: No somos desarrolladores profesionales
+
+Esto es servicio social, no un proyecto de software profesional.
+Tenemos 4 horas diarias, 4 personas, y aprendemos sobre la marcha.
+La prioridad es: tener los datos mapeados, documentar el proceso, y entregar
+un resultado funcional que ayude a la comunidad.
