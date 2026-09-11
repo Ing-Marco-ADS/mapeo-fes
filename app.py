@@ -59,7 +59,9 @@ def init_db():
             precision REAL,
             velocidad REAL,
             heading REAL,
-            encajado INTEGER DEFAULT 0
+            encajado INTEGER DEFAULT 0,
+            estado TEXT DEFAULT 'buscando',
+            confianza REAL DEFAULT 0.5
         )
     ''')
     # Migracion: agregar columna 'color' a puntos si no existe (bases viejas)
@@ -68,10 +70,14 @@ def init_db():
         conn.execute('ALTER TABLE puntos ADD COLUMN color TEXT')
     # Migracion: agregar columnas GPS a tracks si no existen
     cols_track = [r[1] for r in conn.execute('PRAGMA table_info(tracks)').fetchall()]
-    for col in ['lat_cruda', 'lng_cruda', 'precision', 'velocidad', 'heading', 'encajado']:
+    for col in ['lat_cruda', 'lng_cruda', 'precision', 'velocidad', 'heading', 'encajado', 'estado', 'confianza']:
         if col not in cols_track:
             if col == 'encajado':
                 conn.execute(f'ALTER TABLE tracks ADD COLUMN {col} INTEGER DEFAULT 0')
+            elif col == 'confianza':
+                conn.execute(f'ALTER TABLE tracks ADD COLUMN {col} REAL DEFAULT 0.5')
+            elif col == 'estado':
+                conn.execute(f'ALTER TABLE tracks ADD COLUMN {col} TEXT DEFAULT \'buscando\'')
             else:
                 conn.execute(f'ALTER TABLE tracks ADD COLUMN {col} REAL')
     conn.commit()
@@ -114,8 +120,8 @@ def guardar_track():
     data = request.json
     conn = get_db()
     conn.execute(
-        '''INSERT INTO tracks (sesion, lat, lng, timestamp, lat_cruda, lng_cruda, precision, velocidad, heading, encajado)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        '''INSERT INTO tracks (sesion, lat, lng, timestamp, lat_cruda, lng_cruda, precision, velocidad, heading, encajado, estado, confianza)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (
             data['sesion'], data['lat'], data['lng'], data['timestamp'],
             data.get('lat_cruda', data['lat']),
@@ -123,7 +129,9 @@ def guardar_track():
             data.get('precision'),
             data.get('velocidad'),
             data.get('heading'),
-            1 if data.get('encajado') else 0
+            1 if data.get('encajado') else 0,
+            data.get('estado', 'buscando'),
+            data.get('confianza', 0.5)
         )
     )
     conn.commit()

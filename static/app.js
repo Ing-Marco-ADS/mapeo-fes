@@ -80,16 +80,14 @@ function iniciarMapa(lat, lng) {
     marcaActual = L.marker([lat, lng], {icon: iconoActual}).addTo(mapa);
 }
 
-// ===== Configuracion de precision GPS =====
-// Modo de encaje: 'encajado' (GraphHopper) o 'crujo' (GPS puro)
-// Encaje automatico e inteligente:
-// - PERMITE_ENCAJE habilita/deshabilita el uso de GraphHopper (automatico)
-// - El sistema valida que el camino encajado NO se desvie demasiado del GPS crudo.
-//   Si el camino no existe en OpenStreetMap, el encaje se rechaza y se usa el GPS crudo.
+// ===== Configuracion de rastreo inteligente =====
+// El encaje (GraphHopper) y el suavizado (Kalman 2D) se manejan con MotorTracking.
+// El motor decide automaticamente cuando la ruta esta "en camino" o "fuera de
+// camino" y jamas fuerza un encaje que se desvie demasiado del GPS crudo.
 const PERMITE_ENCAJE = true;
-// Desviacion maxima permitida entre el camino encajado y el GPS crudo.
-// Si GraphHopper pega la ruta a un camino lejano (>15m), se descarta y queda GPS puro.
-const MAX_DESVIACION_ENCAJE = 15;
+// Distancia minima (m) que hay que avanzar antes de intentar un encaje, para
+// no agotar la cuota de GraphHopper (se ahorra mucho y ademas da rutas mas limpias)
+const UMBRAL_ENCAJE_M = 10;
 // Radio de precision GPS actual (metros)
 let precisionGPS = 0;
 // Contador de lecturas GPS con baja precision
@@ -99,35 +97,8 @@ let velocidadActual = 0;
 // Heading actual (grados 0-360)
 let headingActual = 0;
 
-// Filtrado de Kalman simplificado para suavizar coordenadas GPS
-// Mas agresivo con ruido alto para eliminar picos
-const kalman = {
-    lat: null, lng: null,
-    varianza: 1,
-    ruido: 0.0008, // ruido de medicion ajustado para eliminar picos sin perder detalle
-    actualizar(lat, lng) {
-        if (this.lat === null) {
-            this.lat = lat;
-            this.lng = lng;
-            return { lat, lng };
-        }
-        // Prediccion (asume movimiento constante)
-        const predLat = this.lat;
-        const predLng = this.lng;
-        // Ganancia de Kalman
-        const K = this.varianza / (this.varianza + this.ruido);
-        // Actualizacion
-        this.lat = predLat + K * (lat - predLat);
-        this.lng = predLng + K * (lng - predLng);
-        this.varianza = (1 - K) * this.varianza;
-        return { lat: this.lat, lng: this.lng };
-    },
-    reiniciar() {
-        this.lat = null;
-        this.lng = null;
-        this.varianza = 1;
-    }
-};
+// Instancia del motor inteligente de rastreo
+const motorTracking = new MotorTracking.Motor();
 
 // Inicializar GPS con maxima precision
 function iniciarGPS() {
@@ -214,6 +185,7 @@ function actualizarRadioPrecision(lat, lng, accuracy) {
 }
 
 // Actualizar indicador de precision en la UI
+// Incluye el estado del motor de rastreo (en camino / sin camino)
 function actualizarIndicadorPrecision(accuracy, speed, heading) {
     const el = document.getElementById('indicador-precision');
     if (!el) return;
@@ -239,6 +211,18 @@ function actualizarIndicadorPrecision(accuracy, speed, heading) {
     if (speed && speed > 0) {
         const kmh = (speed * 3.6).toFixed(1);
         el.innerHTML += ` | <span style="font-weight:700">Vel:</span> ${kmh} km/h`;
+    }
+
+    // Estado del motor de rastreo (si ya se inicio un recorrido)
+    if (sesionActiva) {
+        const emoji = motorTracking.estado === 'camino' ? '🟢'
+                    : motorTracking.estado === 'libre' ? '🟠'
+                    : '🔵';
+        const label = motorTracking.estado === 'camino' ? 'En camino'
+                    : motorTracking.estado === 'libre' ? 'Sin camino (GPS directo)'
+                    : 'Iniciando...';
+        const pct = Math.round(motorTracking.confianza * 100);
+        el.innerHTML += ` | <span style="font-weight:700">${emoji} ${label}</span> (${pct}%)`;
     }
 }
 
@@ -323,34 +307,9 @@ function seleccionarColor(color) {
 }
 
 // ===== Encaje automatico e inteligente =====
-// Funcion para distancia perpendicular de un punto a un segmento de linea
-function distanciaPuntoSegmento(px, py, ax, ay, bx, by) {
-    const dx = bx - ax;
-    const dy = by - ay;
-    const longitud2 = dx * dx + dy * dy;
-    if (longitud2 === 0) {
-        return distanciaMetros(px, py, ax, ay);
-    }
-    // Proyeccion del punto sobre el segmento
-    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / longitud2));
-    const proyX = ax + t * dx;
-    const proyY = ay + t * dy;
-    // Convertir la distancia en "grados aproximados" luego a metros
-    // (la formula de Haversine ya maneja la conversion)
-    return distanciaMetros(px, py, proyX, proyY);
-}
+// La geometria (distancia a segmento, desviacion maxima) y el suavizado Kalman
+// viven en el motor `MotorTracking` (static/motor_tracking.js).
 
-// Valida si la geometria encajada (camino de GraphHopper) se mantiene cerca
-// del tramo GPS crudo. Si se desvia demasiado, el camino no existe en el mapa
-// y usamos el GPS crudo. Devuelve true si el encaje es confiable.
-function validarEncaje(geometria, puntoA, puntoB) {
-    let maxDist = 0;
-    for (const coord of geometria) {
-        const d = distanciaPuntoSegmento(coord[0], coord[1], puntoA[0], puntoA[1], puntoB[0], puntoB[1]);
-        if (d > maxDist) maxDist = d;
-    }
-    return maxDist <= MAX_DESVIACION_ENCAJE;
-}
 
 // Dibujar un punto marcado en el mapa (con un pin de color)
 function dibujarPuntoEnMapa(tipo, lat, lng, nombre, color) {
@@ -534,7 +493,8 @@ function encajarTramo(anterior, actual) {
 // Guarda un punto del track en el servidor y lo dibuja en la linea
 // coords = coordenadas a dibujar (encajadas o crudas)
 // coordsCrudas = coordenadas GPS crudas (si se encajaron)
-async function guardarPuntoTrack(coords, coordsCrudas) {
+// estadoMotor = 'camino' | 'libre' | 'buscando' (confianza del encaje)
+async function guardarPuntoTrack(coords, coordsCrudas, estadoMotor) {
     const dato = {
         sesion: sesion,
         lat: coords[0],
@@ -547,7 +507,9 @@ async function guardarPuntoTrack(coords, coordsCrudas) {
         precision: precisionGPS || null,
         velocidad: velocidadActual || null,
         heading: headingActual || null,
-        encajado: coordsCrudas ? true : false
+        encajado: coordsCrudas ? true : false,
+        estado: estadoMotor || motorTracking.estado,
+        confianza: motorTracking.confianza
     };
     try {
         await fetch('/api/track', {
@@ -566,41 +528,48 @@ async function guardarPuntoTrack(coords, coordsCrudas) {
 }
 
 // Encaja el tramo entre el punto anterior CRUDO y el punto actual de forma
-// AUTOMATICA e inteligente:
-// 1. Llama a GraphHopper con los dos puntos.
-// 2. Valida que el camino resultante NO se desvie mas de 15m del GPS crudo.
-// 3. Si se desvia (el camino no existe en OSM) -> usa GPS crudo.
-// 4. Si se mantiene cerca -> usa el camino encajado (mas bonito).
+// AUTOMATICA e inteligente usando MotorTracking:
+// 1. Si aun no avanzamos UMBRAL_ENCAJE_M, guardamos crudo sin gastar cuota.
+// 2. Si la cuota lo permite y el motor dice que vale la pena, pedimos el encaje.
+// 3. El motor mide la desviacion; si el camino se aleja >15m -> "fuera de camino".
+// 4. Solo se usa el camino encajado cuando el estado es "camino".
+// 5. Estando "fuera de camino" NUNCA se pega al camino mas cercano: se usa GPS crudo.
 async function procesarTramo(puntoActual) {
     // El primer punto: guardarlo tal cual (no hay tramo anterior)
     if (!ultimoPuntoRaw) {
-        await guardarPuntoTrack(puntoActual, puntoActual);
+        await guardarPuntoTrack(puntoActual, null, motorTracking.estado);
         ultimoPuntoRaw = puntoActual;
         return;
     }
 
-    let geometria;
-    let encajado = false;
+    // Mientras no hayamos avanzado lo suficiente, no encajamos: guardamos crudo.
+    const avance = distanciaMetros(ultimoPuntoRaw[0], ultimoPuntoRaw[1], puntoActual[0], puntoActual[1]);
+    if (avance < UMBRAL_ENCAJE_M) {
+        await guardarPuntoTrack(puntoActual, null, motorTracking.estado);
+        return;
+    }
 
-    // Intentar encaje automatico SOLO si esta permitido y hay cuota
-    if (PERMITE_ENCAJE && encajesUsados < MAX_ENCAJES) {
+    let geometria = [puntoActual];
+    let coordsCrudas = null;
+
+    // Intentar encaje automatico SOLO si esta permitido, hay cuota y el motor lo recomienda
+    if (PERMITE_ENCAJE && encajesUsados < MAX_ENCAJES && motorTracking.debeIntentarEncaje()) {
         try {
             const res = await encajarTramo(ultimoPuntoRaw, puntoActual);
-            // Validar que el camino encajado no se desvie del GPS crudo
-            if (res.snapped && res.geometry && res.geometry.length &&
-                validarEncaje(res.geometry, ultimoPuntoRaw, puntoActual)) {
+            const desviacion = (res.snapped && res.geometry && res.geometry.length)
+                ? MotorTracking.geometria.desviacionMaxima(res.geometry, ultimoPuntoRaw, puntoActual)
+                : Infinity;
+
+            const usarEncaje = motorTracking.evaluarEncaje(!!res.snapped, desviacion);
+
+            if (usarEncaje) {
                 encajesUsados++;
                 geometria = res.geometry;
-                encajado = true;
-            } else {
-                // El camino no existe o se desvio: usar GPS crudo
-                geometria = [puntoActual];
+                coordsCrudas = puntoActual;
             }
         } catch (e) {
-            geometria = [puntoActual];
+            motorTracking.evaluarEncaje(false, Infinity);
         }
-    } else {
-        geometria = [puntoActual];
     }
 
     // Omitir el primer punto de la geometria si coincide con el ultimo ya guardado
@@ -610,23 +579,14 @@ async function procesarTramo(puntoActual) {
         if (ultimo && ultimo[0] === coord[0] && ultimo[1] === coord[1]) {
             continue;
         }
-        await guardarPuntoTrack(coord, encajado ? puntoActual : null);
+        await guardarPuntoTrack(coord, coordsCrudas, motorTracking.estado);
     }
     ultimoPuntoRaw = puntoActual;
 }
 
-// ===== Deteccion y eliminacion de picos GPS =====
-// Un pico es una lectura que salta a una distancia imposible para el tiempo
-// transcurrido (velocidad > 8 m/s en terreno peatonal). Se descarta.
-const MAX_VELOCIDAD_PICO_MS = 8; // 8 m/s = 28.8 km/h, imposible caminando
-
-function esPicoGPS(lat, lng, ultimoLat, ultimoLng, segundos) {
-    const dist = distanciaMetros(ultimoLat, ultimoLng, lat, lng);
-    if (segundos <= 0) return false;
-    return (dist / segundos) > MAX_VELOCIDAD_PICO_MS;
-}
-
 // Tracking continuo cada 1 segundo (maxima precision)
+// La decision de suavizar (Kalman 2D), picos y estado camino/libre
+// se delega al motor `MotorTracking` (motor_tracking.js).
 function iniciarTracking() {
     // Limpiar linea anterior
     trackPuntos = [];
@@ -634,40 +594,28 @@ function iniciarTracking() {
     ultimoPuntoRaw = null;
     encajesUsados = 0;
     lecturasBajaCalidad = 0;
-    kalman.reiniciar();
+    motorTracking.reiniciar();
     if (trackPolilinea) {
         trackPolilinea.setLatLngs([]);
     }
 
     let procesando = false;
-    let ultimoTiempoTick = Date.now();
 
     intervaloTrack = setInterval(() => {
         if (posicionActual && !procesando) {
-            const ahora = Date.now();
-            const segundos = (ahora - ultimoTiempoTick) / 1000;
-            ultimoTiempoTick = ahora;
-
-            // Detectar picos: si este punto salta a velocidad imposible,
-            // descartarlo y NO guardar nada (esperar la siguiente lectura)
-            if (ultimoTrackGuardado && esPicoGPS(
+            // El motor analiza el pico, suaviza y decide estado
+            const resultado = motorTracking.procesar(
                 posicionActual.latitude,
                 posicionActual.longitude,
-                ultimoTrackGuardado[0],
-                ultimoTrackGuardado[1],
-                segundos
-            )) {
-                // Si el GPS tiene precision mala, el pico puede ser ruido.
-                // Mejor ignorar esta lectura por completo.
-                return;
+                posicionActual.accuracy,
+                Date.now()
+            );
+
+            if (resultado.esPico) {
+                return; // descartado por el motor (velocidad imposible)
             }
 
-            // Aplicar filtro de Kalman para suavizar ruido del GPS
-            const suavizado = kalman.actualizar(
-                posicionActual.latitude,
-                posicionActual.longitude
-            );
-            const coord = [suavizado.lat, suavizado.lng];
+            const coord = [resultado.lat, resultado.lng];
 
             // Calcular distancia al ultimo punto guardado
             const dist = ultimoTrackGuardado

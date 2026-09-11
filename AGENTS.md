@@ -45,12 +45,22 @@ La **app real y robusta** (que probablemente haga otro equipo o institution) va 
 1. Mapa interactivo con Leaflet.js + OpenStreetMap
 2. GPS en tiempo real con watchPosition (alta precision, maximumAge=0)
 3. Tracking continuo cada 1 segundo con filtro de duplicados (min 1 metro)
-4. **Encaje automatico e inteligente** a caminos peatonales via GraphHopper:
-   - El encaje SOLO se usa si el camino encajado no se desvia mas de 15m del GPS crudo
-   - Si el camino no existe en OpenStreetMap, se usa el GPS crudo automaticamente
-   - NO hay boton manual de modo crudo/encajado (se maneja solo)
-5. Filtro de Kalman para suavizar ruido del GPS
-6. Deteccion y eliminacion de picos GPS (lecturas que saltan a velocidad imposible)
+4. **Motor de rastreo inteligente** (`static/motor_tracking.js`):
+   - Filtro de **Kalman 2D con modelo de velocidad constante** (en metros, con
+     origen local) que suaviza el ruido GPS adaptandose a la precision reportada
+   - **Compuerta de picos**: descarta lecturas que saltan a velocidad imposible
+     (>8 m/s) o sospechosa (>3 m/s, se reduce confianza del filtro)
+   - **Maquina de estados con histeresis**: `buscando` -> `camino` (con 2 encajes
+     buenos consecutivos) o `libre` (con 2 encajes malos consecutivos); lleva una
+     `confianza` 0-1 que sube/baja con cada encaje
+   - **NUNCA fuerza un encaje**: si el camino encajado se desvia mas de 15m del GPS
+     crudo, NO se usa y queda GPS directo. Estando en `libre`, prueba volver al
+     camino de vez en cuando (cada 4 intentos) para detectar la reincorporacion
+5. Encaje a caminos peatonales via GraphHopper SOLO cuando:
+   - Hay cuota disponible (< 300/secion) y
+   - Se avanzo al menos 10m desde el ultimo encaje (ahorra cuota y evita ruido)
+6. Guarda en cada track: coordenadas crudas y filtradas, precision, velocidad,
+   heading, `encajado`, `estado` (camino/libre/buscando) y `confianza`
 7. 13 tipos de puntos con colores: baño, biblioteca, edificio, acceso, alarma, escaleras, escalon, rampa, reunion, descanso, emergencia, entrada_salida, otro
 8. Selector de color antes de marcar
 9. Edicion de puntos guardados: cambiar nombre, color, eliminar
@@ -86,6 +96,9 @@ mapeo-fes/
 │   └── index.html           # Interfaz principal de la app
 ├── static/
 │   ├── app.js               # Logica del frontend (GPS, mapa, tracking, UI)
+│   ├── motor_tracking.js    # Motor de rastreo inteligente (Kalman 2D, picos, estados)
+│   ├── navegacion.js        # Logica de la app de navegacion por voz
+│   ├── navegacion.css       # Estilos de la app de navegacion
 │   ├── style.css            # Estilos CSS (WCAG 2.1 AA)
 │   ├── icon.png             # Icono PWA
 │   └── manifest.webmanifest # Configuracion PWA
@@ -135,6 +148,8 @@ mapeo-fes/
 | velocidad | REAL | Velocidad actual en m/s |
 | heading | REAL | Direccion en grados (0-360) |
 | encajado | INTEGER | 1 si la coordenada fue encajada a un camino, 0 si es GPS crudo |
+| estado | TEXT | Estado del motor: 'camino' \| 'libre' \| 'buscando' |
+| confianza | REAL | Confianza 0-1 de que el encaje es confiable |
 
 ### Tipos de puntos disponibles
 `banio`, `biblioteca`, `edificio`, `acceso`, `alarma`, `escaleras`, `escalon`, `rampa`, `reunion`, `descanso`, `emergencia`, `entrada_salida`, `otro`
