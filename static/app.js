@@ -340,7 +340,8 @@ async function sincronizarRespaldo() {
 // El motor decide si el camino encajado es confiable.
 let encajesUsados = 0;
 const MAX_ENCAJES = 300;
-let ultimoPuntoRaw = null;
+let ultimoPuntoRaw = null;   // ultimo punto filtrado aceptado (extremo del tramo)
+let ultimoPuntoCrudo = null; // ultima lectura CRUDA real del GPS (para medir avance)
 
 // DRY: reutilizar la funcion de distancia del motor
 const distanciaMetros = MotorTracking.geometria.distanciaMetros;
@@ -352,10 +353,11 @@ function encajarTramo(anterior, actual) {
 }
 
 // Guarda un punto del track y lo dibuja en la polilinea
-// coords      = coordenadas finales a guardar (encajadas o crudas)
-// coordsRaw   = coordenadas originales del GPS (para referencia si se encajaron)
-// estadoMotor = estado actual del motor (camino/libre/buscando)
-async function guardarPuntoTrack(coords, coordsRaw, estadoMotor) {
+// coords       = coordenadas finales a guardar (encajadas o filtradas)
+// coordsRaw    = coordenadas CRUDAS reales del GPS (SIEMPRE la lectura original)
+// estadoMotor  = estado actual del motor (camino/libre/buscando)
+// encajadoFlag = true si coords provienen de un encaje a camino (no del filtro)
+async function guardarPuntoTrack(coords, coordsRaw, estadoMotor, encajadoFlag) {
     // Heading: usar el del dispositivo; si es null/cero, usar bearing del motor
     // que refleja la direccion del movimiento real (no la orientacion del cel)
     const bearing = (headingActual && headingActual > 0) ? headingActual : null;
@@ -368,7 +370,7 @@ async function guardarPuntoTrack(coords, coordsRaw, estadoMotor) {
         precision: precisionGPS || null,
         velocidad: velocidadActual || null,
         heading: headingFinal,
-        encajado: coordsRaw ? true : false,
+        encajado: encajadoFlag ? 1 : 0,
         estado: estadoMotor || motorTracking.estado,
         confianza: motorTracking.confianza
     };
@@ -389,23 +391,28 @@ async function guardarPuntoTrack(coords, coordsRaw, estadoMotor) {
 // 1. Si no avanzamos >= UMBRAL_ENCAJE_M -> guardar crudo (ahorrar cuota)
 // 2. Si el motor recomienda intentar y hay cuota -> encajar via GraphHopper/OSRM
 // 3. El motor valida la desviacion -> decides camino/gps-crudo
-async function procesarTramo(puntoActual) {
+// puntoCrudo = coordenadas REALES del GPS (antes del filtro Kalman)
+async function procesarTramo(puntoActual, puntoCrudo) {
     if (!ultimoPuntoRaw) {
-        await guardarPuntoTrack(puntoActual, null, motorTracking.estado);
+        await guardarPuntoTrack(puntoActual, puntoCrudo, motorTracking.estado, false);
         ultimoPuntoRaw = puntoActual;
+        ultimoPuntoCrudo = puntoCrudo;
         return;
     }
-    const avance = distanciaMetros(ultimoPuntoRaw[0], ultimoPuntoRaw[1], puntoActual[0], puntoActual[1]);
+    // El avance se mide entre CRUDOS reales (no filtrados) para no duplicar
+    // ni perder desplazamiento por el suavizado del motor.
+    const avance = distanciaMetros(ultimoPuntoCrudo[0], ultimoPuntoCrudo[1], puntoCrudo[0], puntoCrudo[1]);
     if (avance < UMBRAL_ENCAJE_M) {
         // Tramo corto: no encajamos para ahorrar cuota.
         // IMPORTANTE: informar al motor que NO hubo encaje para que su
         // maquina de estados siga avanzando (evita quedarse en "buscando" para siempre).
         motorTracking.evaluarEncaje(false, Infinity);
-        await guardarPuntoTrack(puntoActual, null, motorTracking.estado);
+        await guardarPuntoTrack(puntoActual, puntoCrudo, motorTracking.estado, false);
         return;
     }
     let geometria = [puntoActual];
-    let coordsCrudas = null;
+    const coordsCrudas = puntoCrudo;
+    let usarEncaje = false;
 
     // Intentar encaje solo si el motor lo recomienda y hay cuota
     if (PERMITE_ENCAJE && encajesUsados < MAX_ENCAJES && motorTracking.debeIntentarEncaje()) {
@@ -414,11 +421,10 @@ async function procesarTramo(puntoActual) {
             const desviacion = (res.snapped && res.geometry && res.geometry.length)
                 ? MotorTracking.geometria.desviacionMaxima(res.geometry, ultimoPuntoRaw, puntoActual)
                 : Infinity;
-            const usarEncaje = motorTracking.evaluarEncaje(!!res.snapped, desviacion);
+            usarEncaje = motorTracking.evaluarEncaje(!!res.snapped, desviacion);
             if (usarEncaje) {
                 encajesUsados++;
                 geometria = res.geometry;
-                coordsCrudas = puntoActual;
             }
         } catch (e) {
             motorTracking.evaluarEncaje(false, Infinity);
@@ -435,9 +441,10 @@ async function procesarTramo(puntoActual) {
         const coord = geometria[i];
         const ultimo = trackPuntos[trackPuntos.length - 1];
         if (ultimo && ultimo[0] === coord[0] && ultimo[1] === coord[1]) continue;
-        await guardarPuntoTrack(coord, coordsCrudas, motorTracking.estado);
+        await guardarPuntoTrack(coord, coordsCrudas, motorTracking.estado, usarEncaje);
     }
     ultimoPuntoRaw = puntoActual;
+    ultimoPuntoCrudo = puntoCrudo;
 }
 
 // Tracking continuo: cada INTERVALO_TRACK_MS (~1s) lee la posicion GPS,
@@ -446,6 +453,7 @@ async function procesarTramo(puntoActual) {
 function iniciarTracking() {
     trackPuntos = [];
     ultimoPuntoRaw = null;
+    ultimoPuntoCrudo = null;
     encajesUsados = 0;
     motorTracking.reiniciar();
     if (trackPolilinea) trackPolilinea.setLatLngs([]);
@@ -453,8 +461,11 @@ function iniciarTracking() {
     let procesando = false;
     intervaloTrack = setInterval(() => {
         if (posicionActual && !procesando) {
+            // CRUDA real ANTES de filtrar: se usa para guardar lat_cruda
+            // y para medir el avance real entre tramos.
+            const crudo = [posicionActual.latitude, posicionActual.longitude];
             const resultado = motorTracking.procesar(
-                posicionActual.latitude, posicionActual.longitude,
+                crudo[0], crudo[1],
                 posicionActual.accuracy, Date.now()
             );
             if (resultado.esPico) return; // descartado por motor
@@ -464,7 +475,7 @@ function iniciarTracking() {
                 : Infinity;
             if (dist >= DISTANCIA_MINIMA_TRACK || trackPuntos.length === 0) {
                 procesando = true;
-                procesarTramo(coord)
+                procesarTramo(coord, crudo)
                     .catch(err => console.error('Error track:', err))
                     .finally(() => { procesando = false; });
             }

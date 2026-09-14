@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapeo FES - 14/09/2026</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; }
+#map { width: 100%; height: 100%; }
+.leyenda { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 10px; padding: 14px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); line-height: 1.6; color: #1a1a1a; font-weight: 500; }
+.leyenda div { display: flex; align-items: center; margin: 2px 0; }
+.leyenda h4 { margin: 0 0 8px 0; font-size: 14px; color: #1F4E79; letter-spacing: 0.3px; }
+.info { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 10px; padding: 14px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); color: #1a1a1a; font-weight: 500; }
+.info h4 { margin: 0 0 6px 0; font-size: 14px; color: #1F4E79; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const puntos = [];
+const track = [{"lat": 19.4755502, "lng": -99.0459613}, {"lat": 19.475525702927055, "lng": -99.04595513169751}, {"lat": 19.475502144176776, "lng": -99.04594948869331}, {"lat": 19.475485659013057, "lng": -99.04594573300737}, {"lat": 19.475475093316884, "lng": -99.04594358052141}, {"lat": 19.475485615777295, "lng": -99.04595039128014}, {"lat": 19.475493859049035, "lng": -99.04595969357483}, {"lat": 19.475504545514596, "lng": -99.04597283605523}, {"lat": 19.475519729383592, "lng": -99.04599890866629}, {"lat": 19.47553140759972, "lng": -99.04601819161317}, {"lat": 19.475538790247338, "lng": -99.04603478654177}, {"lat": 19.47554289906917, "lng": -99.04604893693204}, {"lat": 19.475544924245494, "lng": -99.0460634241354}, {"lat": 19.475544158968965, "lng": -99.04607707864807}, {"lat": 19.47554261553195, "lng": -99.04608864979943}, {"lat": 19.475538724615507, "lng": -99.04610043567972}, {"lat": 19.47553419681995, "lng": -99.0461102065098}, {"lat": 19.475528832207644, "lng": -99.04611910113023}, {"lat": 19.475520920218585, "lng": -99.04612757495184}, {"lat": 19.475513028860874, "lng": -99.04613471856977}, {"lat": 19.47550444234002, "lng": -99.04614115015941}, {"lat": 19.475494793298193, "lng": -99.04614684324912}, {"lat": 19.475485236306742, "lng": -99.04615363598397}, {"lat": 19.475475407521525, "lng": -99.0461600926794}, {"lat": 19.475465785865953, "lng": -99.0461655752202}, {"lat": 19.475453561943656, "lng": -99.04617013458093}, {"lat": 19.475441374221035, "lng": -99.04617342132433}, {"lat": 19.47542904702336, "lng": -99.04617656432559}, {"lat": 19.475418278880724, "lng": -99.0461813483579}, {"lat": 19.475408450469214, "lng": -99.04618727973833}, {"lat": 19.475399795903652, "lng": -99.04619261844456}, {"lat": 19.475391306046973, "lng": -99.04619784450506}, {"lat": 19.47538238657281, "lng": -99.04620246660431}, {"lat": 19.475375950159275, "lng": -99.04620972632263}, {"lat": 19.475368619601035, "lng": -99.04621620475218}, {"lat": 19.475359735424473, "lng": -99.04622127060127}, {"lat": 19.4753504398817, "lng": -99.04622517736989}, {"lat": 19.475338191725836, "lng": -99.0462272692284}, {"lat": 19.47532263518711, "lng": -99.04622659483034}, {"lat": 19.475303126603546, "lng": -99.04622262011561}, {"lat": 19.47528251066807, "lng": -99.04621908349199}, {"lat": 19.47526480585573, "lng": -99.04621638201174}, {"lat": 19.475249818239362, "lng": -99.04621485485646}, {"lat": 19.47523407268116, "lng": -99.04621458747341}, {"lat": 19.475220147534124, "lng": -99.04621510128399}, {"lat": 19.47520866641109, "lng": -99.04621578087077}, {"lat": 19.47519792832819, "lng": -99.0462170633637}, {"lat": 19.475187873575486, "lng": -99.04621908313503}, {"lat": 19.475176930502496, "lng": -99.04622225244393}, {"lat": 19.47516765478659, "lng": -99.0462250979295}, {"lat": 19.475157294360443, "lng": -99.04622886217552}, {"lat": 19.475148388278747, "lng": -99.0462323949017}, {"lat": 19.475139643795064, "lng": -99.04623578699493}, {"lat": 19.47513051405602, "lng": -99.04623950617612}, {"lat": 19.47512026901082, "lng": -99.0462439182425}, {"lat": 19.47510981757364, "lng": -99.04624854793502}, {"lat": 19.47509846907686, "lng": -99.04625396934357}, {"lat": 19.47508864859128, "lng": -99.04625889092736}, {"lat": 19.475077531533586, "lng": -99.04626442943102}, {"lat": 19.475067771840113, "lng": -99.04626949526877}, {"lat": 19.47505698325459, "lng": -99.04627444464003}, {"lat": 19.475047807612956, "lng": -99.04627821813881}, {"lat": 19.475037407635707, "lng": -99.0462811634397}, {"lat": 19.475028410063956, "lng": -99.04628356314863}, {"lat": 19.475011289736525, "lng": -99.04628728163947}, {"lat": 19.47499498620946, "lng": -99.04629084394138}];
+const segmentos = [{"puntos": [[19.4755502, -99.0459613], [19.475525702927055, -99.04595513169751]], "estado": "buscando"}, {"puntos": [[19.475502144176776, -99.04594948869331], [19.475485659013057, -99.04594573300737], [19.475475093316884, -99.04594358052141], [19.475485615777295, -99.04595039128014], [19.475493859049035, -99.04595969357483], [19.475504545514596, -99.04597283605523], [19.475519729383592, -99.04599890866629], [19.47553140759972, -99.04601819161317], [19.475538790247338, -99.04603478654177], [19.47554289906917, -99.04604893693204], [19.475544924245494, -99.0460634241354], [19.475544158968965, -99.04607707864807], [19.47554261553195, -99.04608864979943], [19.475538724615507, -99.04610043567972], [19.47553419681995, -99.0461102065098], [19.475528832207644, -99.04611910113023], [19.475520920218585, -99.04612757495184], [19.475513028860874, -99.04613471856977], [19.47550444234002, -99.04614115015941], [19.475494793298193, -99.04614684324912], [19.475485236306742, -99.04615363598397], [19.475475407521525, -99.0461600926794], [19.475465785865953, -99.0461655752202], [19.475453561943656, -99.04617013458093], [19.475441374221035, -99.04617342132433], [19.47542904702336, -99.04617656432559], [19.475418278880724, -99.0461813483579], [19.475408450469214, -99.04618727973833], [19.475399795903652, -99.04619261844456], [19.475391306046973, -99.04619784450506], [19.47538238657281, -99.04620246660431], [19.475375950159275, -99.04620972632263], [19.475368619601035, -99.04621620475218], [19.475359735424473, -99.04622127060127], [19.4753504398817, -99.04622517736989], [19.475338191725836, -99.0462272692284], [19.47532263518711, -99.04622659483034], [19.475303126603546, -99.04622262011561], [19.47528251066807, -99.04621908349199], [19.47526480585573, -99.04621638201174], [19.475249818239362, -99.04621485485646], [19.47523407268116, -99.04621458747341], [19.475220147534124, -99.04621510128399], [19.47520866641109, -99.04621578087077], [19.47519792832819, -99.0462170633637], [19.475187873575486, -99.04621908313503], [19.475176930502496, -99.04622225244393], [19.47516765478659, -99.0462250979295], [19.475157294360443, -99.04622886217552], [19.475148388278747, -99.0462323949017], [19.475139643795064, -99.04623578699493], [19.47513051405602, -99.04623950617612], [19.47512026901082, -99.0462439182425], [19.47510981757364, -99.04624854793502], [19.47509846907686, -99.04625396934357], [19.47508864859128, -99.04625889092736], [19.475077531533586, -99.04626442943102], [19.475067771840113, -99.04626949526877], [19.47505698325459, -99.04627444464003], [19.475047807612956, -99.04627821813881], [19.475037407635707, -99.0462811634397], [19.475028410063956, -99.04628356314863], [19.475011289736525, -99.04628728163947], [19.47499498620946, -99.04629084394138]], "estado": "libre"}];
+const coloresEstado = {"camino": "#22C55E", "libre": "#F97316", "buscando": "#3B82F6"};
+
+const map = L.map('map', { zoomControl: false }).setView([19.47555, -99.045961], 16);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+        maxZoom: 20,
+        detectRetina: true,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contribuidores, estilo <a href="https://www.openstreetmap.fr/">OSM Francia</a>'
+    }).addTo(map);
+
+if (track.length > 0) {
+    // Ruta completa coloreada por estado del motor de rastreo
+    for (const seg of segmentos) {
+        if (seg.puntos.length < 2) continue;
+        L.polyline(seg.puntos, { color: coloresEstado[seg.estado] || '#3B82F6', weight: 4, opacity: 0.9 }).addTo(map);
+    }
+
+    const iconInicio = L.divIcon({
+        html: '<div style="background:#22C55E;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>',
+        className: '', iconSize: [20, 20], iconAnchor: [10, 10]
+    });
+    L.marker(track[0], { icon: iconInicio }).addTo(map).bindPopup('<b>Inicio del recorrido</b>');
+
+    const iconFin = L.divIcon({
+        html: '<div style="background:#EF4444;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>',
+        className: '', iconSize: [20, 20], iconAnchor: [10, 10]
+    });
+    L.marker(track[track.length - 1], { icon: iconFin }).addTo(map).bindPopup('<b>Fin del recorrido</b>');
+}
+
+puntos.forEach(p => {
+    const color = p.color || '#78909c';
+    const icon = L.divIcon({
+        html: `<div style="background:${color};width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);"></div>`,
+        className: '', iconSize: [22, 22], iconAnchor: [11, 11]
+    });
+    const marker = L.marker([p.lat, p.lng], { icon });
+    marker.bindPopup(`<div style="font-size:14px;font-weight:600;color:#1F4E79">${p.nombre || p.tipo}</div><div style="font-size:11px;color:#666;margin-top:4px">Lat: ${p.lat.toFixed(6)}<br>Lng: ${p.lng.toFixed(6)}</div>`);
+    map.addLayer(marker);
+});
+
+const leyenda = L.control({ position: 'topright' });
+leyenda.onAdd = function() {
+    const div = L.DomUtil.create('div', 'leyenda');
+    div.innerHTML = '<h4>Estado del rastreo</h4><div><span style="display:inline-block;width:18px;height:4px;background:#22C55E;margin-right:6px;vertical-align:middle;border-radius:2px"></span><span style="vertical-align:middle">En camino (encajado)</span></div><div><span style="display:inline-block;width:18px;height:4px;background:#F97316;margin-right:6px;vertical-align:middle;border-radius:2px"></span><span style="vertical-align:middle">Sin sendero (GPS directo)</span></div><div><span style="display:inline-block;width:18px;height:4px;background:#3B82F6;margin-right:6px;vertical-align:middle;border-radius:2px"></span><span style="vertical-align:middle">Iniciando...</span></div>';
+    return div;
+};
+leyenda.addTo(map);
+
+const info = L.control({ position: 'bottomleft' });
+info.onAdd = function() {
+    const div = L.DomUtil.create('div', 'info');
+    div.innerHTML = '<h4>Sesion 14/09/2026</h4>Puntos: 0<br>Track: 66<br>Recorrido: 10:15:25 - 10:16:39<br>Distancia: 0.09 km';
+    return div;
+};
+info.addTo(map);
+
+if (puntos.length > 0 || track.length > 0) {
+    const puntosFit = puntos.length > 0 ? puntos.map(p => [p.lat, p.lng]) : [track[0], track[track.length - 1]];
+    const bounds = L.latLngBounds(puntosFit);
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+}
+</script>
+</body>
+</html>
