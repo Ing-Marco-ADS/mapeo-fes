@@ -13,13 +13,10 @@ body {
     line-height: 1.5;
 }
 
-/* Ocultar visualmente sin quitarlo del lector de pantalla solo durante la transicion.
-   Se usa combinado con .oculto-real para eliminarlo completamente cuando corresponde. */
-.oculto {
-    display: none;
-}
+/* Clase utilitaria para ocultar elementos completamente */
+.oculto { display: none; }
 
-/* Enlace de salto - accesibilidad (criterio 2.4.1) */
+/* Enlace de salto - accesibilidad WCAG 2.4.1 */
 .saltar-al-contenido {
     position: absolute;
     left: -9999px;
@@ -572,12 +569,6 @@ button {
     flex-shrink: 0;
 }
 
-.contenedor-editar-botones {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-}
-
 /* ===== Indicador de precision GPS ===== */
 .indicador-precision {
     background: #1e293b;
@@ -593,25 +584,4 @@ button {
     align-items: center;
     justify-content: center;
     gap: 8px;
-}
-
-/* ===== Boton de modo de encaje ===== */
-.btn-modo-encaje {
-    display: block;
-    width: 100%;
-    padding: 10px 16px;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    margin-bottom: 10px;
-    background: #f97316;
-    color: #fff;
-    letter-spacing: 0.3px;
-    transition: background 0.2s;
-}
-
-.btn-modo-encaje:active {
-    opacity: 0.8;
 }

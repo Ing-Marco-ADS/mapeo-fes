@@ -48,17 +48,25 @@ La **app real y robusta** (que probablemente haga otro equipo o institution) va 
 4. **Motor de rastreo inteligente** (`static/motor_tracking.js`):
    - Filtro de **Kalman 2D con modelo de velocidad constante** (en metros, con
      origen local) que suaviza el ruido GPS adaptandose a la precision reportada
+   - **Rechazo suave por innovacion**: si la medicion se aleja mucho de lo predicho
+     (>2x la varianza), se amplifica automaticamente la R para que el filtro suavice
+     en vez de saltar (complementa la compuerta dura de picos)
    - **Compuerta de picos**: descarta lecturas que saltan a velocidad imposible
-     (>8 m/s) o sospechosa (>3 m/s, se reduce confianza del filtro)
-   - **Maquina de estados con histeresis**: `buscando` -> `camino` (con 2 encajes
-     buenos consecutivos) o `libre` (con 2 encajes malos consecutivos); lleva una
-     `confianza` 0-1 que sube/baja con cada encaje
-   - **NUNCA fuerza un encaje**: si el camino encajado se desvia mas de 15m del GPS
-     crudo, NO se usa y queda GPS directo. Estando en `libre`, prueba volver al
-     camino de vez en cuando (cada 4 intentos) para detectar la reincorporacion
-5. Encaje a caminos peatonales via GraphHopper SOLO cuando:
-   - Hay cuota disponible (< 300/secion) y
-   - Se avanzo al menos 10m desde el ultimo encaje (ahorra cuota y evita ruido)
+     (>8 m/s) o distancia >20m en una sola lectura
+   - **Maquina de estados con histeresis**: `buscando` -> `camino` (2 encajes buenos
+     consecutivos) o `libre` (2 malos consecutivos); lleva `confianza` 0-1
+   - **Recuperacion desde `libre`** (bug corregido): antes el motor se quedaba
+     pegado en `libre` porque `malas` no incrementaba sin intentos. Ahora usa un
+     contador propio `intentosLibre` y reintenta cada 4 tramos
+   - **Bearing de movimiento**: calcula la direccion del desplazamiento en grados
+     (0=N, 90=E) a partir de los puntos filtrados, util como respaldo al heading
+     del celular (que suele ser null o inexacto en Android)
+   - **NUNCA fuerza un encaje**: si el camino encajado se desvia >15m del GPS
+     crudo, NO se usa y queda GPS directo
+5. Encaje a caminos peatonales via **GraphHopper** (primary) o **OSRM** (fallback):
+   - GraphHopper: clave en `.graphhopper_key`, cuota ~500/dia
+   - OSRM (`router.project-osrm.org`): gratuito, sin clave, perfil walking
+   - Se activa solo si: hay cuota, motor recomienda, y se avanzo >=10m
 6. Guarda en cada track: coordenadas crudas y filtradas, precision, velocidad,
    heading, `encajado`, `estado` (camino/libre/buscando) y `confianza`
 7. 13 tipos de puntos con colores: baño, biblioteca, edificio, acceso, alarma, escaleras, escalon, rampa, reunion, descanso, emergencia, entrada_salida, otro
@@ -83,7 +91,8 @@ La **app real y robusta** (que probablemente haga otro equipo o institution) va 
 - **Backend:** Python 3 + Flask + SQLite + flask-cors
 - **Frontend:** HTML5 + CSS3 + JavaScript vanilla + Leaflet.js (OpenStreetMap)
 - **PWA:** manifest.webmanifest, icon.png
-- **Encaje a caminos peatonales:** GraphHopper API (perfil `foot`, clave en `.graphhopper_key`)
+- **Encaje a caminos peatonales:** GraphHopper API primaria (`foot`, clave en `.graphhopper_key`) + OSRM gratuito como fallback
+- **Stacks extra:** OpenCode Zen (modelos gratuitos: big-pickle, mimo-v2.5-free, ling-3.0-flash-fin-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, muse-spark-1.3-contributor-free)
 - **Tunel:** Cloudflare (binario `cloudflared`, no instalar con Homebrew — la red es lenta)
 - **Hosting:** Local en Mac, acceso desde celular via tunel
 
@@ -170,7 +179,7 @@ Formato: `sesion-AAAAmmdd-HHMMSS` (ej: `sesion-20260901-101126`)
 | PATCH | `/api/punto/<id>/posicion` | Corregir posicion de un punto |
 | POST | `/api/track` | Guardar punto de track |
 | GET | `/api/track?sesion=X` | Obtener track de una sesion |
-| GET | `/api/snap?lat1&lng1&lat2&lng2` | Encajar tramo a caminos peatonales (GraphHopper) |
+| GET | `/api/snap?lat1&lng1&lat2&lng2` | Encajar tramo a caminos peatonales (GraphHopper primario, OSRM fallback) |
 | GET | `/api/exportar?sesion=X` | Exportar sesion completa a JSON |
 | GET | `/api/resumen` | Resumen de sesiones (conteo de puntos y track) |
 | GET | `/api/sesiones` | Listar IDs de sesiones |
@@ -197,14 +206,17 @@ python app.py
 # Abrir esa URL en el navegador del celular
 ```
 
-## GraphHopper
+## GraphHopper / OSRM
 
-- Clave en `.graphhopper_key` (NO subir a GitHub)
-- Perfil: `foot` (peatonal)
-- Cuota gratis: ~500 llamadas/dia
+- Clave de GraphHopper en `.graphhopper_key` (NO subir a GitHub)
+- Perfil GraphHopper: `foot` (peatonal); cuota gratis ~500 llamadas/dia
+- **OSRM** (`router.project-osrm.org`): respaldo gratuito, sin clave, perfil
+  `foot` por defecto. Se usa automaticamente si GraphHopper falla o no hay clave.
+  Es menos preciso (red vial general, no sendero peatonal fino), pero mantiene
+  vivo el encaje cuando la cuota de GraphHopper se agota.
 - Limite implementado: 300 encajes por sesion
-- Sin clave: la app funciona pero el track queda como linea cruda del GPS
-- Endpoint: `/api/snap?lat1&lng1&lat2&lng2` (devuelve geometria encajada)
+- Sin clave ni OSRM: el track queda como linea cruda suavizada del GPS
+- Endpoint: `/api/snap?lat1&lng1&lat2&lng2` (devuelve geometria encajada con `fuente`)
 
 ## Convenciones de codigo
 
@@ -240,9 +252,13 @@ python app.py
 
 ### Generar un mapa HTML desde la DB
 ```bash
-# Editar gen_mapa.py con la sesion deseada
+# Sesion por defecto (sesion-20260902-100651)
 python gen_mapa.py
-# Abrir el archivo HTML generado en el navegador
+# Con sesion especifica (nombre de archivo automatico)
+python gen_mapa.py sesion-20260911-094345
+# Con nombre de archivo personalizado
+python gen_mapa.py sesion-20260911-094345 salida.html
+# Genera mapeo_<fecha>.html con track coloreado por estado (camino/libre/buscando)
 ```
 
 ### Subir cambios a GitHub

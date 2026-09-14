@@ -7,16 +7,28 @@ from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-# GraphHopper: encaja puntos a caminos PEATONALES (foot) con clave gratuita.
-# La clave se lee de la variable de entorno GRAPHOPPER_KEY o del archivo
-# .graphhopper_key en la carpeta del proyecto (una sola linea).
+# ------------------------------------------------------------
+# MAPEO FES - Backend Flask + SQLite
+# Encaja puntos/tramos a caminos PEATONALES con un proveedor
+# gratuito. Proveedores:
+#   1. GraphHopper (primary) - clave en .graphhopper_key
+#   2. OSRM publico (fallback) - sin clave, red publica gratuita
+#      (https://router.project-osrm.org, perfil foot/walking)
+# ------------------------------------------------------------
+
 GRAPHOPPER_URL = 'https://graphhopper.com/api/1/route'
+OSRM_URL = 'https://router.project-osrm.org/route/v1'
+
+# Carpeta base del proyecto: asi la BD y la clave se buscan siempre
+# aqui aunque se ejecute el script desde otra carpeta.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'mapeo.db')
 
 def get_graphhopper_key():
     clave = os.environ.get('GRAPHOPPER_KEY', '')
     if not clave:
         try:
-            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.graphhopper_key'), 'r') as f:
+            with open(os.path.join(BASE_DIR, '.graphhopper_key'), 'r') as f:
                 clave = f.read().strip()
         except Exception:
             clave = ''
@@ -24,8 +36,6 @@ def get_graphhopper_key():
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
-
-DB_PATH = 'mapeo.db'
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -97,11 +107,22 @@ def static_files(filename):
 
 @app.route('/api/punto', methods=['POST'])
 def guardar_punto():
+    # Validar que venga JSON y campos obligatorios
     data = request.json
+    if not data:
+        return jsonify({'error': 'Cuerpo JSON vacio'}), 400
+    for campo in ['tipo', 'lat', 'lng', 'timestamp']:
+        if campo not in data:
+            return jsonify({'error': f'Campo {campo} requerido'}), 400
+    try:
+        lat = float(data['lat'])
+        lng = float(data['lng'])
+    except (TypeError, ValueError):
+        return jsonify({'error': 'lat/lng deben ser numeros'}), 400
     conn = get_db()
     conn.execute(
         'INSERT INTO puntos (tipo, lat, lng, descripcion, foto, timestamp, sesion, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        (data['tipo'], data['lat'], data['lng'], data.get('descripcion', ''), data.get('foto', ''), data['timestamp'], data.get('sesion', 'default'), data.get('color', None))
+        (data['tipo'], lat, lng, data.get('descripcion', ''), data.get('foto', ''), data['timestamp'], data.get('sesion', 'default'), data.get('color', None))
     )
     conn.commit()
     conn.close()
@@ -118,14 +139,24 @@ def obtener_puntos():
 @app.route('/api/track', methods=['POST'])
 def guardar_track():
     data = request.json
+    if not data:
+        return jsonify({'error': 'Cuerpo JSON vacio'}), 400
+    for campo in ['sesion', 'lat', 'lng', 'timestamp']:
+        if campo not in data:
+            return jsonify({'error': f'Campo {campo} requerido'}), 400
+    try:
+        lat = float(data['lat'])
+        lng = float(data['lng'])
+    except (TypeError, ValueError):
+        return jsonify({'error': 'lat/lng deben ser numeros'}), 400
     conn = get_db()
     conn.execute(
         '''INSERT INTO tracks (sesion, lat, lng, timestamp, lat_cruda, lng_cruda, precision, velocidad, heading, encajado, estado, confianza)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (
-            data['sesion'], data['lat'], data['lng'], data['timestamp'],
-            data.get('lat_cruda', data['lat']),
-            data.get('lng_cruda', data['lng']),
+            data['sesion'], lat, lng, data['timestamp'],
+            data.get('lat_cruda', lat),
+            data.get('lng_cruda', lng),
             data.get('precision'),
             data.get('velocidad'),
             data.get('heading'),
@@ -219,6 +250,12 @@ def borrar_todo():
 # Sin clave configurada, devuelve los puntos originales (funcionamiento degradado).
 @app.route('/api/snap', methods=['GET'])
 def snap_punto():
+    """Encaja un punto o tramo a caminos peatonales.
+    Proveedores (en orden):
+      1. GraphHopper (primary, con clave)
+      2. OSRM demo gratuito (fallback, sin clave)
+    Si no hay clave y OSRM falla, devuelve los puntos originales (modo degradado).
+    """
     lat1 = request.args.get('lat1') or request.args.get('lat')
     lng1 = request.args.get('lng1') or request.args.get('lng')
     lat2 = request.args.get('lat2')
@@ -228,37 +265,78 @@ def snap_punto():
         return jsonify({'error': 'Faltan coordenadas'}), 400
     try:
         lat1 = float(lat1); lng1 = float(lng1)
-        if lat2 is not None:
+        if lat2 is not None and lng2 is not None:
             lat2 = float(lat2); lng2 = float(lng2)
+        elif lat2 is not None or lng2 is not None:
+            # Tiene uno pero no el otro -> invalido
+            return jsonify({'error': 'Se necesitan lat2 Y lng2'}), 400
     except ValueError:
         return jsonify({'error': 'Coordenadas invalidas'}), 400
 
     clave = get_graphhopper_key()
-    # Si no hay clave, no se puede encajar a peatonales -> devolver originales
-    if not clave:
-        if lat2 is None:
+    if lat2 is None:
+        puntos_simple = True
+    else:
+        puntos_simple = False
+
+    # Si no hay nada que encajar
+    if lat2 is None:
+        if not clave:
             return jsonify({'lat': lat1, 'lng': lng1, 'snapped': False, 'sin_clave': True})
-        else:
+    else:
+        if not clave:
+            # Sin GraphHopper: intentar OSRM (gratuito, sin clave)
+            geometria = osrm_ruta_walking(lat1, lng1, lat2, lng2)
+            if geometria:
+                return jsonify({'geometry': geometria, 'snapped': True, 'fuente': 'osrm'})
             return jsonify({'geometry': [[lat1, lng1], [lat2, lng2]], 'snapped': False, 'sin_clave': True})
 
+    # Con GraphHopper
     puntos = [[lat1, lng1]]
     if lat2 is not None:
         puntos.append([lat2, lng2])
 
     try:
         geometria = graphhopper_ruta_foot(puntos, clave)
-    except Exception as e:
-        # Si falla la API, devolver el punto o tramo original
-        if lat2 is None:
-            return jsonify({'lat': lat1, 'lng': lng1, 'snapped': False, 'error': str(e)})
-        else:
-            return jsonify({'geometry': [[lat1, lng1], [lat2, lng2]], 'snapped': False, 'error': str(e)})
+    except Exception:
+        # GraphHopper fallo: intentar OSRM como respaldo
+        if lat2 is not None:
+            geometria_osrm = osrm_ruta_walking(lat1, lng1, lat2, lng2)
+            if geometria_osrm:
+                return jsonify({'geometry': geometria_osrm, 'snapped': True, 'fuente': 'osrm_fallback'})
+            # Ambos fallaron: devolver puntos crudos
+            return jsonify({'geometry': [[lat1, lng1], [lat2, lng2]], 'snapped': False})
+        return jsonify({'lat': lat1, 'lng': lng1, 'snapped': False})
 
     if geometria:
-        return jsonify({'geometry': geometria, 'snapped': True})
+        return jsonify({'geometry': geometria, 'snapped': True, 'fuente': 'graphhopper'})
     if lat2 is None:
         return jsonify({'lat': lat1, 'lng': lng1, 'snapped': False})
     return jsonify({'geometry': [[lat1, lng1], [lat2, lng2]], 'snapped': False})
+
+# Llama a OSRM (Open Source Routing Machine) publico con perfil walking
+# para encajar un tramo a senderos peatonales.
+# Devuelve geometria como [[lat,lng], ...] o None si no hay ruta.
+# OSRM es gratuito y no requiere clave (https://router.project-osrm.org).
+# NOTA: el servidor demo tiene limites de uso; solo se usa como respaldo
+# cuando GraphHopper falla, asi que las llamadas son esporadicas.
+def osrm_ruta_walking(lat1, lng1, lat2, lng2):
+    try:
+        # OSRM espera formato lng,lat (el reverso a Leaflet)
+        url = (f'{OSRM_URL}/walking/'
+               f'{lng1},{lat1};{lng2},{lat2}'
+               f'?overview=full&geometries=geojson')
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mapeo-FES/1.0'})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        if data.get('code') != 'Ok' or not data.get('routes'):
+            return None
+        coords = data['routes'][0]['geometry'].get('coordinates', [])
+        # OSRM devuelve [lng,lat]; convertir a [lat,lng] como espera Leaflet
+        geometria = [[c[1], c[0]] for c in coords] if coords else None
+        return geometria if geometria else None
+    except Exception:
+        return None
 
 # Llama a GraphHopper route con perfil foot y devuelve la geometria encajada
 # como lista de [lat, lng], o [] si no hay una linea valida.
@@ -278,12 +356,19 @@ def graphhopper_ruta_foot(puntos, clave):
 @app.route('/api/punto/<int:pid>/posicion', methods=['PATCH'])
 def corregir_posicion(pid):
     data = request.json
+    if not data:
+        return jsonify({'error': 'Cuerpo JSON vacio'}), 400
     lat = data.get('lat')
     lng = data.get('lng')
     if lat is None or lng is None:
         return jsonify({'error': 'Faltan lat/lng'}), 400
+    try:
+        lat = float(lat)
+        lng = float(lng)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'lat/lng deben ser numeros'}), 400
     conn = get_db()
-    cur = conn.execute('UPDATE puntos SET lat = ?, lng = ? WHERE id = ?', (float(lat), float(lng), pid))
+    cur = conn.execute('UPDATE puntos SET lat = ?, lng = ? WHERE id = ?', (lat, lng, pid))
     conn.commit()
     ok = cur.rowcount > 0
     conn.close()
