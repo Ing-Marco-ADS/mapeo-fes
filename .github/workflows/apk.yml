@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -45,3 +47,15 @@ jobs:
         with:
           name: apk
           path: app-celular/android/app/build/outputs/apk/release/*.apk
+
+      - name: Publicar APK en Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls app-celular/android/app/build/outputs/apk/release/*.apk | head -1)
+          echo "publicando $APK"
+          gh release create apk-v1 "$APK" \
+            --title "Mapeo FES — APK instalable" \
+            --notes "App Android instalable (GPS + brújula nativa). Instálala como cualquier aplicación." \
+            --clobber || \
+          gh release upload apk-v1 "$APK" --clobber
