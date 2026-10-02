@@ -57,5 +57,5 @@ jobs:
           gh release create apk-v1 "$APK" \
             --title "Mapeo FES — APK instalable" \
             --notes "App Android instalable (GPS + brújula nativa). Instálala como cualquier aplicación." \
-            --clobber || \
-          gh release upload apk-v1 "$APK" --clobber
+            --latest \
+            || gh release upload apk-v1 "$APK" --clobber
