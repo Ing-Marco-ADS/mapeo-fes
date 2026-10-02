@@ -1,0 +1,31 @@
+{
+  "short_name": "Mapa FES",
+  "name": "Mapeo FES - Mapas Accesibles",
+  "description": "Mapa accesible de la FES con navegacion por voz para personas con discapacidad visual.",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "16x16 32x32 48x48 64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1F4E79",
+  "background_color": "#1F4E79",
+  "lang": "es-MX"
+}

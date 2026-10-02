@@ -1,0 +1,700 @@
+{
+  "version": 2,
+  "sesion": "sesion-20260902-100651",
+  "generado": true,
+  "puntos": [
+    {
+      "id": 79,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4755678,
+      "lng": -99.0462194,
+      "nombre": "Cápsulas del tiempo",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 80,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4754681,
+      "lng": -99.0462049,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 81,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4753703,
+      "lng": -99.046224,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 82,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4750559,
+      "lng": -99.0462045,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 83,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4748244,
+      "lng": -99.0462421,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 84,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4746909,
+      "lng": -99.0461149,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 85,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4746787,
+      "lng": -99.0460745,
+      "nombre": "Cafetería",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 86,
+      "tipo": "descanso",
+      "tipoNombre": "Lugar de descanso",
+      "lat": 19.4746641,
+      "lng": -99.0461344,
+      "nombre": "Lugar de descanso",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 87,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4746228,
+      "lng": -99.0457469,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 88,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4745775,
+      "lng": -99.0455424,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 89,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4745483,
+      "lng": -99.0454701,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 90,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4745397,
+      "lng": -99.0453775,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 91,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.474568,
+      "lng": -99.045361,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 92,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4745556,
+      "lng": -99.0453279,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 93,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4745442,
+      "lng": -99.0453095,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 94,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4745405,
+      "lng": -99.0453235,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 95,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4745222,
+      "lng": -99.0452742,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 96,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.474365,
+      "lng": -99.0448739,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 98,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.474343,
+      "lng": -99.0446605,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 100,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4743447,
+      "lng": -99.0446449,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 97,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4743449,
+      "lng": -99.044644,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 99,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4743447,
+      "lng": -99.0446463,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 101,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4743273,
+      "lng": -99.0444942,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 102,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4743979,
+      "lng": -99.0444236,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 103,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4742885,
+      "lng": -99.0443345,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 104,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4743002,
+      "lng": -99.0443578,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 105,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4743079,
+      "lng": -99.0443922,
+      "nombre": "Cafetería",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 106,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4742391,
+      "lng": -99.0444456,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 107,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4742335,
+      "lng": -99.044536,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 108,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4740982,
+      "lng": -99.0444602,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 109,
+      "tipo": "descanso",
+      "tipoNombre": "Lugar de descanso",
+      "lat": 19.4740545,
+      "lng": -99.0445478,
+      "nombre": "Lugar de descanso",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 110,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4737262,
+      "lng": -99.0445628,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 111,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4738797,
+      "lng": -99.0447812,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 112,
+      "tipo": "banio",
+      "tipoNombre": "Baño",
+      "lat": 19.4738601,
+      "lng": -99.0448106,
+      "nombre": "Baño",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 113,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4738202,
+      "lng": -99.0447173,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 114,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4735816,
+      "lng": -99.0446254,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 115,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4735667,
+      "lng": -99.0445995,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 116,
+      "tipo": "descanso",
+      "tipoNombre": "Lugar de descanso",
+      "lat": 19.4735601,
+      "lng": -99.0445629,
+      "nombre": "Lugar de descanso",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 117,
+      "tipo": "escaleras",
+      "tipoNombre": "Escaleras",
+      "lat": 19.4735644,
+      "lng": -99.0445577,
+      "nombre": "Escaleras",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 118,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4736004,
+      "lng": -99.0445397,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 119,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4736009,
+      "lng": -99.0443406,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 120,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.473569,
+      "lng": -99.0441287,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 121,
+      "tipo": "descanso",
+      "tipoNombre": "Lugar de descanso",
+      "lat": 19.4738538,
+      "lng": -99.0441393,
+      "nombre": "Lugar de descanso",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 122,
+      "tipo": "descanso",
+      "tipoNombre": "Lugar de descanso",
+      "lat": 19.4738484,
+      "lng": -99.04414,
+      "nombre": "Lugar de descanso",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 123,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4739075,
+      "lng": -99.0442448,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 124,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4738871,
+      "lng": -99.0442681,
+      "nombre": "Cafetería",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 125,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4738872,
+      "lng": -99.0443314,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 126,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4738932,
+      "lng": -99.0443497,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 127,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4739273,
+      "lng": -99.0443542,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 128,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4743604,
+      "lng": -99.0442692,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 129,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4744913,
+      "lng": -99.0442696,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 130,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4747204,
+      "lng": -99.0441718,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 131,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4747323,
+      "lng": -99.044172,
+      "nombre": "Cafetería",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 132,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4751833,
+      "lng": -99.0440216,
+      "nombre": "Laboratorio L2",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 133,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4751903,
+      "lng": -99.0440587,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 134,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4751601,
+      "lng": -99.044162,
+      "nombre": "Laboratorio L1",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 135,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.475159,
+      "lng": -99.0441618,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 136,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4751317,
+      "lng": -99.0435434,
+      "nombre": "Laboratorio de ingeniería civil",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 137,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4744994,
+      "lng": -99.0437061,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 138,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4744284,
+      "lng": -99.0431565,
+      "nombre": "Canchas de baloncesto",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 139,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4739003,
+      "lng": -99.0433702,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 140,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4738721,
+      "lng": -99.0431369,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 141,
+      "tipo": "banio",
+      "tipoNombre": "Baño",
+      "lat": 19.474067,
+      "lng": -99.0435077,
+      "nombre": "Baño",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 142,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.473948,
+      "lng": -99.0436305,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 143,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4738196,
+      "lng": -99.0437586,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 144,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4738632,
+      "lng": -99.0440084,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 145,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4738648,
+      "lng": -99.0440045,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 146,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4744779,
+      "lng": -99.0444825,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 147,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4744619,
+      "lng": -99.0446618,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 148,
+      "tipo": "otro",
+      "tipoNombre": "Otro",
+      "lat": 19.4746455,
+      "lng": -99.0448316,
+      "nombre": "Cafetería",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 149,
+      "tipo": "rampa",
+      "tipoNombre": "Rampa",
+      "lat": 19.4751846,
+      "lng": -99.044664,
+      "nombre": "Rampa",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 150,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4754433,
+      "lng": -99.0447342,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 151,
+      "tipo": "entrada_salida",
+      "tipoNombre": "Entrada o salida",
+      "lat": 19.4752108,
+      "lng": -99.0451773,
+      "nombre": "Entrada/Salida",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 152,
+      "tipo": "entrada_salida",
+      "tipoNombre": "Entrada o salida",
+      "lat": 19.4751894,
+      "lng": -99.0451649,
+      "nombre": "Entrada/Salida",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 153,
+      "tipo": "descanso",
+      "tipoNombre": "Lugar de descanso",
+      "lat": 19.4742159,
+      "lng": -99.0456707,
+      "nombre": "Lugar de descanso",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 154,
+      "tipo": "escalon",
+      "tipoNombre": "Escalón",
+      "lat": 19.4748122,
+      "lng": -99.0463616,
+      "nombre": "Escalón",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 155,
+      "tipo": "reunion",
+      "tipoNombre": "Punto de reunión",
+      "lat": 19.4753163,
+      "lng": -99.0460401,
+      "nombre": "Punto de reunión",
+      "color": "#f59e0b"
+    }
+  ]
+}
