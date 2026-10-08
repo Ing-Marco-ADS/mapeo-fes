@@ -40,7 +40,7 @@ jobs:
 
       - name: Compilar APK
         working-directory: app-celular/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
       - name: Subir APK como artefacto
         uses: actions/upload-artifact@v4
@@ -56,6 +56,6 @@ jobs:
           echo "publicando $APK"
           gh release create apk-v1 "$APK" \
             --title "Mapeo FES — APK instalable" \
-            --notes "App Android instalable (GPS + brújula nativa). Instálala como cualquier aplicación." \
+            --notes "Versión beta: GPS + brújula nativa + navegación por voz con ruta peatonal (OSRM gratis). APK arm64 (Motorola/acelulares)." \
             --latest \
             || gh release upload apk-v1 "$APK" --clobber
