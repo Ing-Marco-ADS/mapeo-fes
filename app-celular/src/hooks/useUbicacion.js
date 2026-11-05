@@ -8,6 +8,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
+import { DeviceMotion } from 'expo-sensors';
 import FiltroGPS from '../lib/filtro';
 
 const WEB_SONDEO_MS = 1000; // una lectura fresca por segundo en web
@@ -29,6 +30,15 @@ const RAD = Math.PI / 180;
 
 function cortarAngulo(g) {
   return ((g % 360) + 360) % 360;
+}
+
+// Suavizado circular del rumbo: evita que la aguja "vibre" con el ruido del
+// sensor. Los giros grandes y reales (>40 grados) se muestran de inmediato.
+function suavizarRumbo(previo, nuevo) {
+  if (previo == null) return nuevo;
+  let d = ((nuevo - previo + 540) % 360) - 180; // diferencia mas corta, -180..180
+  if (Math.abs(d) > 40) return nuevo;
+  return cortarAngulo(previo + d * 0.35);
 }
 
 // ---------- Declinacion magnetica (API gratuita sin clave) --------------
@@ -106,6 +116,10 @@ export function useUbicacion() {
   // caminata del GPS (false), y si iOS pide calibrar en ocho.
   const [magnetica, setMagnetica] = useState(false);
   const [necesitaCalibrar, setNecesitaCalibrar] = useState(false);
+  // Rumbo del sensor, independiente del GPS: asi la brujula funciona aunque
+  // todavia no haya señal de ubicacion (antes se descartaba y la aguja
+  // se quedaba fija apuntando hacia arriba).
+  const [rumboSensor, setRumboSensor] = useState(null);
 
   const filtroRef = useRef(null);
   const activo = useRef(true);
@@ -113,6 +127,11 @@ export function useUbicacion() {
   const webIntervalo = useRef(null);
   const subNativo = useRef(null);
   const subRumboNativo = useRef(null);
+  // Sensor de movimiento (Android) y control del respaldo.
+  const subMovimiento = useRef(null);
+  const temporizadorRespaldo = useRef(null);
+  const rumboSuaveRef = useRef(null);          // ultimo rumbo ya suavizado
+  const ultimoRumboEstadoRef = useRef(null);   // ultimo valor publicado al estado
   // Suavizado de la brujula: guarda la ultima lectura aceptada y su momento.
   const rumboRef = useRef(null);
   const rumboMomentoRef = useRef(0);
@@ -124,13 +143,35 @@ export function useUbicacion() {
   const crudoRelativoMomentoRef = useRef(0);
   const desfaseRef = useRef(null); // grados a sumar a un relativo para apuntar al norte
 
+  // Aplica una lectura de brujula: suaviza y publica el rumbo.
+  // Actualiza SIEMPRE `rumboSensor` (funciona sin GPS) y, si ya hay posicion,
+  // tambien lo copia dentro de `ubica` para las pantallas de navegacion.
+  const aplicarRumbo = useCallback((grados) => {
+    if (!activo.current || grados == null || !Number.isFinite(grados)) return;
+    const suave = suavizarRumbo(rumboSuaveRef.current, cortarAngulo(grados));
+    rumboSuaveRef.current = suave;
+    hayMagneticaRef.current = true;
+    setMagnetica(true);
+
+    // Publica solo si cambio al menos 1 grado: evita re-renders inutiles.
+    const previo = ultimoRumboEstadoRef.current;
+    const cambio = previo == null
+      ? 180
+      : Math.abs(((suave - previo + 540) % 360) - 180);
+    if (cambio < 1) return;
+
+    ultimoRumboEstadoRef.current = suave;
+    setRumboSensor(suave);
+    setUbica(prev => (prev ? { ...prev, rumboPantalla: suave } : prev));
+  }, []);
+
   const aplicarLectura = useCallback((lat, lng, precision, heading, velocidad) => {
     if (!activo.current) return;
     if (!filtroRef.current) filtroRef.current = new FiltroGPS();
     const r = filtroRef.current.procesar(lat, lng, precision, Date.now());
-    // Una sola carga por sesion de la declinacion magnetica del lugar (solo web;
-    // en nativo expo-location ya entrega el rumbo verdadero corregido).
-    if (Platform.OS === 'web') cargarDeclinacion(lat, lng);
+    // Una sola carga por sesion de la declinacion magnetica del lugar.
+    // En web se suma al sensor magnetico; en Android la usa DeviceMotion.
+    cargarDeclinacion(lat, lng);
     const rumbo = heading ?? r.bearing ?? null;
     const velocidadUsar = velocidad ?? r.velocidad ?? null;
 
@@ -206,9 +247,72 @@ export function useUbicacion() {
   }, [aplicarLectura]);
 
   // ---------- Android/iOS: expo-location ----------
+  // Respaldo: rumbo con expo-location. En iOS es fiable (trueHeading); en
+  // Android solo se usa si DeviceMotion no esta disponible.
+  const iniciarRumboLocation = useCallback(async () => {
+    if (subRumboNativo.current) return;
+    try {
+      subRumboNativo.current = await Location.watchHeadingAsync((h) => {
+        if (!h) return;
+        // trueHeading es norte verdadero; si no esta (-1 en Android), magnetico.
+        const g = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
+        if (g != null && g >= 0) aplicarRumbo(g);
+      });
+    } catch (_e) { /* sin brujula de location */ }
+  }, [aplicarRumbo]);
+
+  // Principal en Android: vector de rotacion fusionado (acelerometro +
+  // giroscopio + magnetometro) via DeviceMotion. Es mucho mas estable que
+  // Location.watchHeadingAsync, que "salta" en muchos Android.
+  //
+  // NO se usa DeviceMotion.isAvailableAsync(): ese metodo exige que existan
+  // CINCO sensores a la vez (incluido TYPE_LINEAR_ACCELERATION), y si a un
+  // telefono le falta uno devuelve false aunque el vector de rotacion (el que
+  // de verdad sirve para la brujula) SI exista. Suscribirse es seguro: Expo
+  // ignora los sensores que el equipo no tenga.
+  const iniciarMovimiento = useCallback(async () => {
+    try {
+      DeviceMotion.setUpdateInterval(100);
+      let recibio = false;
+      subMovimiento.current = DeviceMotion.addListener(({ rotation }) => {
+        if (!rotation || typeof rotation.alpha !== 'number') return;
+        recibio = true;
+        if (temporizadorRespaldo.current) {
+          clearTimeout(temporizadorRespaldo.current);
+          temporizadorRespaldo.current = null;
+        }
+        // En Android `alpha` viene en RADIANES y es el azimut negado.
+        const magnetico = cortarAngulo((-rotation.alpha * 180) / Math.PI);
+        // Suma la declinacion del lugar para apuntar al norte verdadero.
+        aplicarRumbo(cortarAngulo(magnetico + (declinacionCache ?? 0)));
+      });
+      // Si en 4 s no llega ninguna lectura, se apaga este sensor y se activa
+      // el respaldo (expo-location / iOS).
+      temporizadorRespaldo.current = setTimeout(() => {
+        if (recibio) return;
+        subMovimiento.current?.remove();
+        subMovimiento.current = null;
+        iniciarRumboLocation();
+      }, 4000);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }, [aplicarRumbo, iniciarRumboLocation]);
+
   const iniciarNativo = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     setPermiso(status);
+
+    // La brujula se activa aparte del GPS: en Android no necesita permiso de
+    // ubicacion. Asi la aguja funciona aunque el GPS tarde o no tenga señal.
+    if (Platform.OS === 'android') {
+      const ok = await iniciarMovimiento();
+      if (!ok) iniciarRumboLocation();
+    } else if (status === 'granted') {
+      iniciarRumboLocation();
+    }
+
     if (status !== 'granted') return;
 
     try {
@@ -229,16 +333,7 @@ export function useUbicacion() {
       },
       (razon) => setError(typeof razon === 'string' ? razon : 'Fallo el GPS')
     );
-
-    try {
-      subRumboNativo.current = await Location.watchHeadingAsync((h) => {
-        const grados = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
-        hayMagneticaRef.current = true;
-        setMagnetica(true);
-        setUbica(prev => (prev ? { ...prev, rumboPantalla: grados } : prev));
-      });
-    } catch (_e) { /* sin brujula: se usa el bearing de caminata */ }
-  }, [aplicarLectura]);
+  }, [aplicarLectura, iniciarMovimiento, iniciarRumboLocation]);
 
   useEffect(() => {
     activo.current = true;
@@ -293,6 +388,7 @@ export function useUbicacion() {
         if (aceptado === previo || ahora - rumboMomentoRef.current < 100) return;
         rumboMomentoRef.current = ahora;
         rumboRef.current = aceptado;
+        setRumboSensor(cortarAngulo(aceptado));
         setUbica(prev => (prev ? { ...prev, rumboPantalla: cortarAngulo(aceptado) } : prev));
       };
       const onCalibrar = (ev) => {
@@ -325,6 +421,8 @@ export function useUbicacion() {
       } else {
         subNativo.current?.remove();
         subRumboNativo.current?.remove();
+        subMovimiento.current?.remove();
+        if (temporizadorRespaldo.current) clearTimeout(temporizadorRespaldo.current);
       }
       if (limpiarBrujula) limpiarBrujula();
     };
@@ -355,5 +453,5 @@ export function useUbicacion() {
     return status === 'granted';
   }, []);
 
-  return { ubica, permiso, error, pedirPermisos, magnetica, necesitaCalibrar };
+  return { ubica, rumboPantalla: rumboSensor, permiso, error, pedirPermisos, magnetica, necesitaCalibrar };
 }

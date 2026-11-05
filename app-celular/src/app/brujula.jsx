@@ -1,13 +1,13 @@
 // Pantalla de prueba de la brújula: muestra el norte en tiempo real y el
 // rumbo al que apunta tu telefono, para verificar que el sensor funciona.
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { useUbicacionGlobal } from '../hooks/useUbicacion';
 import { hablar } from '../lib/voz';
 import Brujula from '../components/Brujula';
 
 export default function PantallaBrujula() {
-  const { ubica, pedirPermisos, magnetica, necesitaCalibrar } = useUbicacionGlobal();
+  const { ubica, rumboPantalla, pedirPermisos, magnetica, necesitaCalibrar } = useUbicacionGlobal();
   const [, setSegundo] = useState(() => Date.now());
   // Diagnostico del sensor (solo para saber si llegan eventos y si son
   // absolutos o relativos en este navegador/teléfono).
@@ -38,14 +38,9 @@ export default function PantallaBrujula() {
     };
   }, []);
 
-  const rumboPantalla = ubica?.rumboPantalla ?? null;
-
-  const activarBrujula = async () => {
-    await pedirPermisos();
-    hablar('Brújula activada. Gira el teléfono despacio para calibrar el norte.');
-  };
-
-  const grados = rumboPantalla != null ? ((rumboPantalla % 360) + 360) % 360 : null;
+  // El rumbo del sensor llega aunque no haya GPS; si no, se usa el de `ubica`.
+  const rumboActual = rumboPantalla ?? ubica?.rumboPantalla ?? null;
+  const grados = rumboActual != null ? ((rumboActual % 360) + 360) % 360 : null;
 
   // Detecta si venimos de un navegador embebido (WhatsApp, Telegram, etc.).
   // Esos mini-navegadores bloquean los sensores de orientacion (la brujula).
@@ -57,13 +52,19 @@ export default function PantallaBrujula() {
   }
   const sinSensor = grados == null && navegadorEmbebido;
 
+  const activarBrujula = async () => {
+    await pedirPermisos();
+    hablar('Brújula activada. Mantén el teléfono plano y gíralo despacio para calibrar el norte.');
+  };
+
   return (
     <View style={styles.contenedor}>
       <Text style={styles.titulo} accessibilityRole="header">
         Brújula en tiempo real
       </Text>
       <Text style={styles.subtitulo} accessible={true}>
-        La aguja roja señala el norte.
+        La aguja roja siempre señala el norte real. Mantén el teléfono plano
+        (boca arriba) para que la lectura sea exacta.
       </Text>
 
       <Brujula rumboPantalla={grados} tamaño={280} />
@@ -75,8 +76,8 @@ export default function PantallaBrujula() {
       {grados != null ? (
         <Text style={styles.detalle} accessible={true}>
           {magnetica
-            ? 'Norte real del sensor magnético (calibrado con la declinación del lugar).'
-            : 'Sensor en modo relativo: gira y se ajustará con precisión cuando camines unos pasos.'}
+            ? 'Rumbo del sensor de movimiento, orientado al norte real.'
+            : 'Sensor en modo relativo: gira el teléfono y se ajustará al caminar.'}
         </Text>
       ) : (
         <Pressable
@@ -91,8 +92,11 @@ export default function PantallaBrujula() {
       )}
 
       <Text style={styles.diag} accessible={true}>
-        Diagnóstico: sensor {sensor.hayEvento ? 'recibiendo' : 'sin eventos'} ·{' '}
-        {sensor.absoluto ? 'absoluto' : 'relativo'}
+        {Platform.OS === 'web'
+          ? `Diagnóstico: sensor ${sensor.hayEvento ? 'recibiendo' : 'sin eventos'} · ${sensor.absoluto ? 'absoluto' : 'relativo'}`
+          : grados != null
+            ? 'Sensor de brújula activo'
+            : 'Buscando el sensor de brújula…'}
       </Text>
 
       {necesitaCalibrar && (
@@ -113,15 +117,17 @@ export default function PantallaBrujula() {
 
       {grados == null && !navegadorEmbebido && (
         <Text style={styles.ayuda} accessible={true}>
-          Si no se activa: abre esta dirección en Safari o Chrome (no dentro de
-          WhatsApp/Telegram, que apagan los sensores) y pulsa «Activar brújula».
-          Caminar unos pasos también activa la brújula de GPS.
+          Si no se activa: revisa que el teléfono tenga brújula (magnetómetro) y
+          pulsa «Activar brújula». En navegadores dentro de WhatsApp/Telegram los
+          sensores están apagados: abre la app en Chrome.
         </Text>
       )}
 
       {grados != null && (
         <Text style={styles.ayuda} accessible={true}>
-          Gira el teléfono despacio si la aguja no se mueve (calibración).
+          Si la aguja se mueve rara o no marca bien, calibra: mantén el teléfono
+          plano y haz una figura de ocho (8) en el aire. Aléjate de imanes,
+          bocinas y estructuras metálicas.
         </Text>
       )}
     </View>
