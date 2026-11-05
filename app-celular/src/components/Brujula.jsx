@@ -41,22 +41,29 @@ export default function Brujula({ rumboPantalla, rumboDestino, tamaño = TAMANO 
       {/* Muesca superior fija: hacia donde apunta tu telefono */}
       <View style={[styles.muescaFrente, { left: centro - 3, top: 0 }]} />
 
-      {puntosCardinales().map((p) => {
-        const rad = (p.grados * Math.PI) / 180;
-        const r = centro - 24;
-        return (
-          <Text
-            key={p.etiqueta}
-            style={[
-              styles.letra,
-              { color: p.color },
-              { left: centro + r * Math.sin(rad) - 8, top: centro - r * Math.cos(rad) - 12 },
-            ]}
-          >
-            {p.etiqueta}
-          </Text>
-        );
-      })}
+      {/* Rosco de puntos cardinales: gira JUNTO con la aguja roja, como una
+          brujula real. Asi la letra N siempre queda pegada a la punta roja y
+          no se confunde con la muesca superior (que marca tu direccion). */}
+      <View style={[styles.capa, { transform: [{ rotate: `${-actual}deg` }] }]}>
+        {puntosCardinales().map((p) => {
+          const rad = (p.grados * Math.PI) / 180;
+          const r = centro - 24;
+          return (
+            <Text
+              key={p.etiqueta}
+              style={[
+                styles.letra,
+                { color: p.color },
+                { left: centro + r * Math.sin(rad) - 8, top: centro - r * Math.cos(rad) - 12 },
+                // Contrarresta el giro del rosco para que la letra se lea derecha.
+                { transform: [{ rotate: `${actual}deg` }] },
+              ]}
+            >
+              {p.etiqueta}
+            </Text>
+          );
+        })}
+      </View>
 
       {/* Aguja del DESTINO (detras del norte para que no la tapan) */}
       {hayDestino && (
@@ -101,6 +108,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     width: 16,
     textAlign: 'center',
+  },
+  capa: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
   },
   agujaCont: {
     position: 'absolute',
