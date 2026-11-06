@@ -1,7 +1,10 @@
-// Pantalla principal: mapa con los puntos mapeados + tu ubicacion en vivo.
-// Pensada para personas ciegas: botones grandes con etiquetas de voz.
+// Pantalla principal: radar con los puntos mapeados + tu ubicacion en vivo.
+// Pensada para personas ciegas: botones grandes, etiquetas de voz y toda la
+// informacion importante escrita en palabras (no solo con colores).
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useUbicacionGlobal } from '../hooks/useUbicacion';
 import { usePrecauciones } from '../hooks/usePrecauciones';
@@ -10,6 +13,8 @@ import { esPrecaucion, textoPrecaucion } from '../lib/categorias';
 import { distanciaMetros, textoDistancia, rumboEntre, textoDireccion } from '../lib/geo';
 import datosMapa from '../datos_mapeo.json';
 import Mapa from '../components/Mapa';
+import Icono from '../components/Icono';
+import { C, SOMBRA, SOMBRA_SUAVE, R } from '../lib/tema';
 
 const RADIO_CERCA = 40; // metros: cuando un lugar esta mas cerca, se anuncia
 
@@ -17,6 +22,13 @@ export default function PantallaMapa() {
   const router = useRouter();
   const { ubica, permiso, rumboReferencia } = useUbicacionGlobal();
   const [puntos] = useState(datosMapa.puntos);
+
+  // Reloj ligero: mantiene al dia el texto "actualizado hace X s".
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
 
   const lugares = useMemo(() => puntos.filter(p => !esPrecaucion(p)), [puntos]);
   const obstaculos = useMemo(() => puntos.filter(esPrecaucion), [puntos]);
@@ -103,119 +115,273 @@ export default function PantallaMapa() {
     hablar(`${p.nombre}, ${textoDistancia(d)}.`);
   }, [ubica]);
 
+  // ---- Textos de estado (siempre en palabras, nunca solo color) ----
+  const cercano = ordenados[0] || null;
+  const distanciaCercano = cercano && ubica
+    ? distanciaMetros(ubica.lat, ubica.lng, cercano.lat, cercano.lng)
+    : null;
+  const direccionCercano = cercano && ubica
+    ? textoDireccion(
+        rumboReferencia,
+        rumboEntre(ubica.lat, ubica.lng, cercano.lat, cercano.lng)
+      )
+    : '';
+
+  const segDesdeGps = ubica?.actualizadoEn
+    ? Math.max(0, Math.round((ahora - ubica.actualizadoEn) / 1000))
+    : null;
+
+  let estadoGps;
+  if (permiso === 'denied') {
+    estadoGps = { texto: 'Sin permiso', color: C.rojo, fondo: C.rojoClaro };
+  } else if (!ubica) {
+    estadoGps = { texto: 'Buscando GPS', color: C.ambar, fondo: C.ambarClaro };
+  } else if (segDesdeGps != null && segDesdeGps > 30) {
+    estadoGps = { texto: 'GPS débil', color: C.ambar, fondo: C.ambarClaro };
+  } else {
+    estadoGps = { texto: 'GPS activo', color: C.verdeOscuro, fondo: C.verdeClaro };
+  }
+
   return (
     <View style={styles.contenedor}>
+      <StatusBar style="dark" />
+
       <View style={styles.contenedorMapa}>
         <Mapa
           puntos={puntos}
           ubica={ubica}
           rumboPantalla={rumboReferencia}
           alSeleccionarPunto={alSeleccionarPunto}
+          margenInferior={300}
         />
       </View>
 
-      {/* Panel de accesibilidad */}
-      <View style={styles.panel}>
-        <Text style={styles.tituloAccesible} accessibilityRole="header">
-          Mapeo FES · Accesible
-        </Text>
-        <Text style={styles.subtitulo} accessible={true}>
-          {ubica
-            ? `Estás ${ordenados[0] ? textoDistancia(distanciaMetros(ubica.lat, ubica.lng, ordenados[0].lat, ordenados[0].lng)) : 'con lugares mapados'}.`
-            : permiso === 'denied'
-              ? 'Sin permiso de ubicación. Actívalo en ajustes.'
-              : 'Buscando tu ubicación...'}
-        </Text>
-        <View style={styles.filaBotones}>
-          <Pressable
-            style={({ pressed }) => [styles.boton, pressed && styles.botonPresionado]}
-            onPress={anunciarTodo}
-            accessibilityRole="button"
-            accessibilityLabel="Anunciar los puntos cercanos"
-            accessibilityHint="Dice por voz los cinco lugares más cercanos a ti"
-          >
-            <Text style={styles.botonTexto}>Anunciar cercanos</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.boton, pressed && styles.botonPresionado]}
-            onPress={irABuscar}
-            accessibilityRole="button"
-            accessibilityLabel="Buscar punto de interés"
-            accessibilityHint="Abre la lista de todos los lugares del mapeo"
-          >
-            <Text style={styles.botonTexto}>Buscar</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.boton, styles.botonPrincipal, pressed && styles.botonPresionado]}
-            onPress={irANavegar}
-            accessibilityRole="button"
-            accessibilityLabel="Navegación por voz"
-            accessibilityHint="Abre el asistente que te guía con la voz hacia un lugar"
-          >
-            <Text style={styles.botonTexto}>Navegar</Text>
-          </Pressable>
+      {/* Marca y estado, flotando arriba */}
+      <SafeAreaView style={styles.zonaArriba} edges={['top']} pointerEvents="box-none">
+        <View style={styles.marca}>
+          <View style={styles.logo}>
+            <Text style={styles.logoTexto}>M</Text>
+          </View>
+          <View style={styles.marcaTextos}>
+            <Text style={styles.marcaTitulo}>Mapeo FES</Text>
+            <Text style={styles.marcaSub}>Guía por voz en el campus</Text>
+          </View>
+          <View style={[styles.chip, { backgroundColor: estadoGps.fondo }]}>
+            <View style={[styles.chipPunto, { backgroundColor: estadoGps.color }]} />
+            <Text style={[styles.chipTexto, { color: estadoGps.color }]}>
+              {estadoGps.texto}
+            </Text>
+          </View>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.botonBrujula, pressed && styles.botonPresionado]}
-          onPress={irABrujula}
-          accessibilityRole="button"
-          accessibilityLabel="Brújula de prueba"
-          accessibilityHint="Abre la brújula en tiempo real para validar el sensor"
-        >
-          <Text style={styles.botonBrujulaTexto}>Brújula</Text>
-        </Pressable>
-      </View>
+      </SafeAreaView>
+
+      {/* Panel de accesibilidad, abajo */}
+      <SafeAreaView style={styles.zonaAbajo} edges={['bottom']} pointerEvents="box-none">
+        <View style={styles.panel}>
+          <View style={styles.cercanoFila}>
+            <View style={[styles.cercanoIcono, { backgroundColor: (cercano?.color || C.azul) + '22' }]}>
+              <View style={[styles.cercanoPunto, { backgroundColor: cercano?.color || C.azul }]} />
+            </View>
+            <View style={styles.cercanoTextos}>
+              <Text style={styles.cercanoEtiqueta}>
+                {cercano ? 'LUGAR MÁS CERCANO' : 'SIN UBICACIÓN'}
+              </Text>
+              <Text style={styles.cercanoNombre} numberOfLines={1}>
+                {cercano ? cercano.nombre : 'Buscando tu posición…'}
+              </Text>
+              <Text style={styles.cercanoDetalle} numberOfLines={1}>
+                {cercano && distanciaCercano != null
+                  ? `Queda${direccionCercano}`
+                  : 'Activa el GPS para empezar'}
+              </Text>
+            </View>
+            {cercano && distanciaCercano != null && (
+              <View style={styles.distanciaCaja}>
+                <Text style={styles.distanciaNumero}>{Math.round(distanciaCercano)}</Text>
+                <Text style={styles.distanciaUnidad}>metros</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.filaPrincipal}>
+            <Pressable
+              style={({ pressed }) => [styles.botonPrincipal, pressed && styles.presionado]}
+              onPress={irANavegar}
+              accessibilityRole="button"
+              accessibilityLabel="Navegación por voz"
+              accessibilityHint="Abre el asistente que te guía con la voz hacia un lugar"
+            >
+              <Icono nombre="flecha" tamaño={20} color={C.blanco} />
+              <Text style={styles.botonPrincipalTexto}>Navegar</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.botonSecundario, pressed && styles.presionado]}
+              onPress={irABuscar}
+              accessibilityRole="button"
+              accessibilityLabel="Buscar punto de interés"
+              accessibilityHint="Abre la lista de todos los lugares del mapeo"
+            >
+              <Icono nombre="lupa" tamaño={19} color={C.azul} />
+              <Text style={styles.botonSecundarioTexto}>Buscar</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.filaSecundaria}>
+            <Pressable
+              style={({ pressed }) => [styles.botonAnunciar, pressed && styles.presionado]}
+              onPress={anunciarTodo}
+              accessibilityRole="button"
+              accessibilityLabel="Anunciar los puntos cercanos"
+              accessibilityHint="Dice por voz los cinco lugares más cercanos a ti"
+            >
+              <Icono nombre="sonido" tamaño={18} color={C.navy} />
+              <Text style={styles.botonAnunciarTexto}>Anunciar cercanos</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.botonBrujula, pressed && styles.presionado]}
+              onPress={irABrujula}
+              accessibilityRole="button"
+              accessibilityLabel="Brújula y sensores"
+              accessibilityHint="Abre la brújula en tiempo real para validar el sensor"
+            >
+              <Icono nombre="brujula" tamaño={18} color={C.textoMedio} />
+              <Text style={styles.botonBrujulaTexto}>Brújula</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  contenedor: { flex: 1 },
+  contenedor: { flex: 1, backgroundColor: C.fondo },
   contenedorMapa: { flex: 1 },
+
+  zonaArriba: { position: 'absolute', top: 0, left: 0, right: 0 },
+  marca: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 12,
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    borderRadius: R.l,
+    borderWidth: 1,
+    borderColor: C.borde,
+    ...SOMBRA_SUAVE,
+  },
+  logo: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoTexto: { color: C.blanco, fontSize: 19, fontWeight: '900' },
+  marcaTextos: { flex: 1 },
+  marcaTitulo: { fontSize: 16, fontWeight: '800', color: C.navy, letterSpacing: 0.2 },
+  marcaSub: { fontSize: 12, color: C.textoSuave, marginTop: 1 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 9,
+    borderRadius: R.redondo,
+  },
+  chipPunto: { width: 7, height: 7, borderRadius: 4 },
+  chipTexto: { fontSize: 11, fontWeight: '800' },
+
+  zonaAbajo: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   panel: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 12,
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderRadius: 14,
+    marginHorizontal: 12,
+    marginBottom: 8,
     padding: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: C.tarjeta,
+    borderRadius: R.xl,
+    borderWidth: 1,
+    borderColor: C.borde,
+    ...SOMBRA,
   },
-  tituloAccesible: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F4E79',
-    marginBottom: 2,
-  },
-  subtitulo: {
-    fontSize: 14,
-    color: '#374151',
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  filaBotones: { flexDirection: 'row', gap: 8 },
-  boton: {
-    flex: 1,
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 10,
+  cercanoFila: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cercanoIcono: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  botonBrujula: {
-    marginTop: 10,
-    backgroundColor: '#f59e0b',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
+  cercanoPunto: { width: 16, height: 16, borderRadius: 8 },
+  cercanoTextos: { flex: 1 },
+  cercanoEtiqueta: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: C.textoSuave,
+    letterSpacing: 0.7,
   },
-  botonBrujulaTexto: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  cercanoNombre: { fontSize: 17, fontWeight: '800', color: C.texto, marginTop: 2 },
+  cercanoDetalle: { fontSize: 13, color: C.textoMedio, marginTop: 1 },
+  distanciaCaja: { alignItems: 'flex-end', minWidth: 56 },
+  distanciaNumero: { fontSize: 26, fontWeight: '900', color: C.navy, lineHeight: 28 },
+  distanciaUnidad: { fontSize: 11, fontWeight: '700', color: C.textoSuave },
+
+  filaPrincipal: { flexDirection: 'row', gap: 10, marginTop: 14 },
   botonPrincipal: {
-    backgroundColor: '#15803d',
+    flex: 1.3,
+    height: 56,
+    borderRadius: R.m,
+    backgroundColor: C.verde,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  botonPresionado: { opacity: 0.75 },
-  botonTexto: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  botonPrincipalTexto: { color: C.blanco, fontSize: 17, fontWeight: '800' },
+  botonSecundario: {
+    flex: 1,
+    height: 56,
+    borderRadius: R.m,
+    backgroundColor: C.azulClaro,
+    borderWidth: 1,
+    borderColor: C.azulBorde,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  botonSecundarioTexto: { color: C.azul, fontSize: 16, fontWeight: '800' },
+
+  filaSecundaria: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  botonAnunciar: {
+    flex: 1,
+    height: 46,
+    borderRadius: R.m,
+    backgroundColor: C.fondo,
+    borderWidth: 1,
+    borderColor: C.borde,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  botonAnunciarTexto: { color: C.navy, fontSize: 14, fontWeight: '700' },
+  botonBrujula: {
+    height: 46,
+    paddingHorizontal: 14,
+    borderRadius: R.m,
+    backgroundColor: C.fondo,
+    borderWidth: 1,
+    borderColor: C.borde,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  botonBrujulaTexto: { color: C.textoMedio, fontSize: 14, fontWeight: '700' },
+
+  presionado: { opacity: 0.72, transform: [{ scale: 0.985 }] },
 });

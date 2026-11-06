@@ -6,18 +6,21 @@
 //   diagnostico con los valores crudos de los sensores.
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useUbicacionGlobal } from '../hooks/useUbicacion';
 import { hablar } from '../lib/voz';
 import { cardinalDeRumbo } from '../lib/geo';
 import Brujula from '../components/Brujula';
+import Icono from '../components/Icono';
+import { C, SOMBRA_SUAVE, R } from '../lib/tema';
 
 function n(valor, sufijo = '') {
   return valor == null || valor === '' ? '—' : `${valor}${sufijo}`;
 }
 
-function Fila({ etiqueta, valor }) {
+function Fila({ etiqueta, valor, ultima = false }) {
   return (
-    <View style={styles.fila}>
+    <View style={[styles.fila, !ultima && styles.filaBorde]}>
       <Text style={styles.filaEtiqueta}>{etiqueta}</Text>
       <Text style={styles.filaValor}>{valor}</Text>
     </View>
@@ -84,8 +87,9 @@ export default function PantallaBrujula() {
 
   return (
     <ScrollView contentContainerStyle={styles.contenedor}>
+      <StatusBar style="light" />
       <Text style={styles.titulo} accessibilityRole="header">
-        Brújula
+        Tu orientación
       </Text>
       <Text style={styles.subtitulo} accessible={true}>
         La aguja roja señala el norte. Mantén el teléfono plano (boca arriba)
@@ -93,18 +97,27 @@ export default function PantallaBrujula() {
       </Text>
 
       {grados != null ? (
-        <>
+        <View style={styles.tarjetaBrujula}>
           <Brujula rumboPantalla={grados} tamaño={260} />
 
+          <Text style={styles.lecturaGrados}>{Math.round(grados)}°</Text>
           <Text style={styles.lectura} accessible={true}>
-            Tu pantalla apunta al {cardinalDeRumbo(grados)} ({Math.round(grados)}°)
+            Tu pantalla apunta al {cardinalDeRumbo(grados)}
           </Text>
-          <Text style={styles.detalle} accessible={true}>
-            {magnetica
-              ? 'Lectura del sensor magnético, corregida al norte real.'
-              : 'Lectura del sensor (norte magnético).'}
-            {calibrado ? ' Calibración manual activa.' : ''}
-          </Text>
+          <View style={styles.chipFila}>
+            <View style={styles.chip}>
+              <View style={[styles.chipPunto, { backgroundColor: magnetica ? C.azul : C.ambar }]} />
+              <Text style={styles.chipTexto}>
+                {magnetica ? 'Norte real corregido' : 'Norte magnético'}
+              </Text>
+            </View>
+            {calibrado && (
+              <View style={[styles.chip, styles.chipVerde]}>
+                <View style={[styles.chipPunto, { backgroundColor: C.verdeOscuro }]} />
+                <Text style={[styles.chipTexto, { color: C.verdeOscuro }]}>Calibrada</Text>
+              </View>
+            )}
+          </View>
 
           {!confirmarCal ? (
             <View style={styles.filaBotones}>
@@ -113,7 +126,9 @@ export default function PantallaBrujula() {
                 onPress={() => setConfirmarCal(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Calibrar la brújula al norte"
+                accessibilityHint="Marca la dirección actual como el norte real"
               >
+                <Icono nombre="brujula" tamaño={19} color={C.blanco} />
                 <Text style={styles.botonTexto}>Calibrar al norte</Text>
               </Pressable>
               {calibrado && (
@@ -129,6 +144,10 @@ export default function PantallaBrujula() {
             </View>
           ) : (
             <View style={styles.confirmacion}>
+              <View style={styles.confirmacionCabecera}>
+                <Icono nombre="alerta" tamaño={18} color={C.ambar} />
+                <Text style={styles.confirmacionTitulo}>Apunta al norte real</Text>
+              </View>
               <Text style={styles.confirmacionTexto} accessible={true}>
                 Apunta la parte de arriba del teléfono hacia el norte real
                 (ayúdate de otra brújula o del sol) y confirma.
@@ -153,9 +172,12 @@ export default function PantallaBrujula() {
               </View>
             </View>
           )}
-        </>
+        </View>
       ) : (
         <View style={styles.sinSensor}>
+          <View style={styles.sinSensorIcono}>
+            <Icono nombre="brujula" tamaño={30} color={C.ambar} />
+          </View>
           <Text style={styles.sinSensorTitulo}>Sin lectura de la brújula</Text>
           <Text style={styles.sinSensorTexto} accessible={true}>
             Tu teléfono tiene brújula, pero la app no está recibiendo datos del
@@ -179,30 +201,63 @@ export default function PantallaBrujula() {
       )}
 
       {necesitaCalibrar && (
-        <Text style={styles.avisoCalibrar} accessible={true}>
-          El sistema pidió calibrar: haz una figura de ocho (8) en el aire.
-        </Text>
+        <View style={styles.avisoCalibrar}>
+          <Icono nombre="alerta" tamaño={16} color={C.ambar} />
+          <Text style={styles.avisoCalibrarTexto} accessible={true}>
+            El sistema pidió calibrar: haz una figura de ocho (8) en el aire.
+          </Text>
+        </View>
       )}
 
       {/* Estado del GPS y dirección de referencia */}
       <View style={styles.tarjeta}>
-        <Text style={styles.tarjetaTitulo} accessibilityRole="header">
-          Dirección de referencia
-        </Text>
-        <Text style={styles.tarjetaTexto} accessible={true}>
-          {hayGps
-            ? `GPS activo · precisión ±${Math.round(ubica.precision ?? 0)} m`
-            : permiso === 'denied'
-              ? 'Sin permiso de ubicación. Actívalo en Ajustes > Aplicaciones > Mapeo FES > Permisos.'
-              : 'Buscando señal GPS…'}
-        </Text>
-        <Text style={styles.tarjetaTexto} accessible={true}>
-          {rumboReferencia != null
-            ? `Vas hacia el ${cardinalDeRumbo(rumboReferencia)} (${Math.round(rumboReferencia)}°) · fuente: ${fuenteRumbo === 'gps' ? 'GPS al caminar' : 'brújula'}`
-            : cursoGps != null
-              ? `Última dirección de caminata: ${cardinalDeRumbo(cursoGps)} (${Math.round(cursoGps)}°)`
-              : 'Camina unos pasos y la app detectará tu dirección.'}
-        </Text>
+        <View style={styles.tarjetaCabecera}>
+          <View style={styles.tarjetaIcono}>
+            <Icono nombre="ubicacionFija" tamaño={18} color={C.azul} />
+          </View>
+          <Text style={styles.tarjetaTitulo} accessibilityRole="header">
+            Dirección de referencia
+          </Text>
+        </View>
+
+        <View style={styles.datoFila}>
+          <Text style={styles.datoEtiqueta}>GPS</Text>
+          <Text style={styles.datoValor}>
+            {hayGps
+              ? `Activo · precisión ±${Math.round(ubica.precision ?? 0)} m`
+              : permiso === 'denied'
+                ? 'Sin permiso de ubicación'
+                : 'Buscando señal…'}
+          </Text>
+        </View>
+
+        <View style={styles.datoFila}>
+          <Text style={styles.datoEtiqueta}>Dirección</Text>
+          <Text style={styles.datoValor}>
+            {rumboReferencia != null
+              ? `${cardinalDeRumbo(rumboReferencia)} (${Math.round(rumboReferencia)}°)`
+              : cursoGps != null
+                ? `Última caminata: ${cardinalDeRumbo(cursoGps)}`
+                : 'Camina unos pasos'}
+          </Text>
+        </View>
+
+        <View style={[styles.datoFila, styles.datoFilaSinBorde]}>
+          <Text style={styles.datoEtiqueta}>Fuente</Text>
+          <Text style={styles.datoValor}>
+            {rumboReferencia == null
+              ? 'Sin rumbo todavía'
+              : fuenteRumbo === 'gps'
+                ? 'GPS al caminar'
+                : 'Brújula'}
+          </Text>
+        </View>
+
+        {permiso === 'denied' && (
+          <Text style={styles.ayudaPermiso}>
+            Actívalo en Ajustes › Aplicaciones › Mapeo FES › Permisos.
+          </Text>
+        )}
       </View>
 
       {error && (
@@ -228,6 +283,7 @@ export default function PantallaBrujula() {
         accessibilityRole="button"
         accessibilityLabel="Mostrar u ocultar el diagnóstico de sensores"
       >
+        <Icono nombre="lupa" tamaño={16} color={C.blanco} />
         <Text style={styles.botonDiagTexto}>
           {mostrarDiag ? 'Ocultar diagnóstico' : 'Mostrar diagnóstico'}
         </Text>
@@ -262,7 +318,7 @@ export default function PantallaBrujula() {
           <Fila etiqueta="Rumbo sensor" valor={n(diag.sensor.grados, '°')} />
           <Fila etiqueta="Edad sensor" valor={diag.sensor.edadMs == null ? '—' : `${diag.sensor.edadMs} ms`} />
           <Fila etiqueta="Referencia" valor={`${n(diag.referencia.grados, '°')} · ${n(diag.referencia.fuente)}`} />
-          <Fila etiqueta="Desfase calibración" valor={n(diag.calibracion, '°')} />
+          <Fila etiqueta="Desfase calibración" valor={n(diag.calibracion, '°')} ultima />
           <Text style={styles.notaDiag}>
             Comparte esta pantalla si la brújula sigue fallando: con estos
             valores se puede saber si el sensor responde y qué está midiendo.
@@ -281,77 +337,175 @@ export default function PantallaBrujula() {
 
 const styles = StyleSheet.create({
   contenedor: {
-    backgroundColor: '#f0f2f5',
-    padding: 16,
+    backgroundColor: C.fondo,
+    padding: 14,
     alignItems: 'center',
     gap: 12,
     paddingBottom: 40,
   },
-  titulo: { fontSize: 22, fontWeight: '800', color: '#1F4E79', textAlign: 'center' },
-  subtitulo: { fontSize: 15, color: '#374151', textAlign: 'center', lineHeight: 21 },
-  lectura: { fontSize: 20, fontWeight: '700', color: '#111827', textAlign: 'center' },
-  detalle: { fontSize: 14, color: '#4b5563', textAlign: 'center' },
-  filaBotones: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
+  titulo: { fontSize: 24, fontWeight: '900', color: C.navy, textAlign: 'center' },
+  subtitulo: { fontSize: 14, color: C.textoMedio, textAlign: 'center', lineHeight: 20, maxWidth: 340 },
+
+  tarjetaBrujula: {
+    width: '100%',
+    backgroundColor: C.tarjeta,
+    borderRadius: R.xl,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: C.borde,
+    ...SOMBRA_SUAVE,
+  },
+  lecturaGrados: { fontSize: 34, fontWeight: '900', color: C.navy, lineHeight: 38 },
+  lectura: { fontSize: 15, fontWeight: '700', color: C.textoMedio, textAlign: 'center' },
+  chipFila: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: C.azulClaro,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: R.redondo,
+  },
+  chipVerde: { backgroundColor: C.verdeClaro },
+  chipPunto: { width: 7, height: 7, borderRadius: 4 },
+  chipTexto: { fontSize: 11, fontWeight: '800', color: C.azul },
+
+  filaBotones: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 },
   boton: {
-    backgroundColor: '#15803d',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: C.verde,
     paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingHorizontal: 22,
+    borderRadius: R.m,
+    minHeight: 50,
   },
   botonSecundario: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: C.fondo,
+    borderWidth: 1,
+    borderColor: C.borde,
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingHorizontal: 18,
+    borderRadius: R.m,
+    minHeight: 50,
+    justifyContent: 'center',
   },
-  botonSecundarioTexto: { color: '#374151', fontSize: 15, fontWeight: '700' },
-  botonTexto: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  botonPresionado: { opacity: 0.75 },
+  botonSecundarioTexto: { color: C.textoMedio, fontSize: 14, fontWeight: '700' },
+  botonTexto: { color: C.blanco, fontSize: 15, fontWeight: '800' },
+  botonPresionado: { opacity: 0.75, transform: [{ scale: 0.985 }] },
+
   confirmacion: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 12,
+    backgroundColor: C.ambarClaro,
+    borderRadius: R.l,
     padding: 14,
     gap: 10,
     alignItems: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
-  confirmacionTexto: { fontSize: 14, color: '#78350f', textAlign: 'center', lineHeight: 20 },
+  confirmacionCabecera: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  confirmacionTitulo: { fontSize: 14, fontWeight: '900', color: '#92400E' },
+  confirmacionTexto: { fontSize: 13, color: '#78350F', textAlign: 'center', lineHeight: 19 },
+
   sinSensor: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
+    width: '100%',
+    backgroundColor: C.tarjeta,
+    borderRadius: R.xl,
+    padding: 18,
     gap: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: C.borde,
+    ...SOMBRA_SUAVE,
   },
-  sinSensorTitulo: { fontSize: 17, fontWeight: '800', color: '#b45309', textAlign: 'center' },
-  sinSensorTexto: { fontSize: 14, color: '#374151', textAlign: 'center', lineHeight: 21 },
+  sinSensorIcono: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: C.ambarClaro,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sinSensorTitulo: { fontSize: 17, fontWeight: '900', color: '#B45309', textAlign: 'center' },
+  sinSensorTexto: { fontSize: 13, color: C.textoMedio, textAlign: 'center', lineHeight: 20 },
+
+  avisoCalibrar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: C.ambarClaro,
+    borderRadius: R.m,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    width: '100%',
+  },
+  avisoCalibrarTexto: { flex: 1, fontSize: 13, fontWeight: '700', color: '#92400E', lineHeight: 18 },
+
   tarjeta: {
     width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 14,
+    backgroundColor: C.tarjeta,
+    borderRadius: R.l,
     padding: 14,
-    gap: 6,
+    gap: 4,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: C.borde,
+    ...SOMBRA_SUAVE,
   },
-  tarjetaTitulo: { fontSize: 15, fontWeight: '800', color: '#1F4E79', marginBottom: 2 },
-  tarjetaTexto: { fontSize: 14, color: '#374151', lineHeight: 20 },
-  fila: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  filaEtiqueta: { fontSize: 12, color: '#64748b', flexShrink: 1 },
-  filaValor: { fontSize: 12, color: '#0f172a', fontWeight: '600', flexShrink: 1, textAlign: 'right' },
-  avisoCalibrar: { fontSize: 14, fontWeight: '700', color: '#92400e', textAlign: 'center', lineHeight: 20 },
-  avisoWebView: { backgroundColor: '#7f1d1d', padding: 14, borderRadius: 12, gap: 6, width: '100%' },
-  avisoWebViewTitulo: { color: '#fff', fontSize: 15, fontWeight: '800', textAlign: 'center' },
-  avisoWebViewTexto: { color: '#fecaca', fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  tarjetaCabecera: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  tarjetaIcono: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: C.azulClaro,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tarjetaTitulo: { fontSize: 15, fontWeight: '900', color: C.navy },
+  tarjetaTexto: { fontSize: 13, color: C.textoMedio, lineHeight: 19 },
+
+  datoFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.linea,
+  },
+  datoFilaSinBorde: { borderBottomWidth: 0 },
+  datoEtiqueta: { fontSize: 12, fontWeight: '700', color: C.textoSuave },
+  datoValor: { flex: 1, fontSize: 13, fontWeight: '700', color: C.texto, textAlign: 'right' },
+  ayudaPermiso: { fontSize: 12, color: C.rojo, lineHeight: 17, marginTop: 2 },
+
+  fila: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 6 },
+  filaBorde: { borderBottomWidth: 1, borderBottomColor: C.linea },
+  filaEtiqueta: { fontSize: 12, color: C.textoSuave, flexShrink: 1 },
+  filaValor: { fontSize: 12, color: C.texto, fontWeight: '700', flexShrink: 1, textAlign: 'right' },
+
+  avisoWebView: { backgroundColor: '#7F1D1D', padding: 14, borderRadius: R.m, gap: 6, width: '100%' },
+  avisoWebViewTitulo: { color: C.blanco, fontSize: 15, fontWeight: '900', textAlign: 'center' },
+  avisoWebViewTexto: { color: '#FECACA', fontSize: 13, lineHeight: 19, textAlign: 'center' },
+
   botonDiag: {
-    backgroundColor: '#1F4E79',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: C.navy,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: R.m,
+    minHeight: 46,
   },
-  botonDiagTexto: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  notaDiag: { fontSize: 12, color: '#64748b', lineHeight: 17, marginTop: 6 },
-  error: { fontSize: 14, color: '#b91c1c', textAlign: 'center', lineHeight: 20 },
-  pie: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 4 },
+  botonDiagTexto: { color: C.blanco, fontSize: 14, fontWeight: '800' },
+  notaDiag: { fontSize: 12, color: C.textoSuave, lineHeight: 17, marginTop: 8 },
+  error: { fontSize: 14, color: C.rojo, textAlign: 'center', lineHeight: 20 },
+  pie: { fontSize: 12, color: C.textoSuave, textAlign: 'center', marginTop: 4 },
 });

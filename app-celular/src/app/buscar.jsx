@@ -2,16 +2,19 @@
 // a tu ubicacion. Los obstaculos (escaleras, rampas, escalones) van al final
 // con etiqueta de precaucion. Al tocar un punto, se anuncia por voz.
 import { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, Text, StyleSheet, SectionList, Pressable } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useUbicacionGlobal } from '../hooks/useUbicacion';
 import { usePrecauciones } from '../hooks/usePrecauciones';
 import { hablar } from '../lib/voz';
 import { esPrecaucion, textoPrecaucion } from '../lib/categorias';
 import { distanciaMetros, textoDistancia, rumboEntre, textoDireccion } from '../lib/geo';
+import { C, SOMBRA_SUAVE, R } from '../lib/tema';
+import Icono from '../components/Icono';
 import datosMapa from '../datos_mapeo.json';
 
 export default function PantallaBuscar() {
-  const { ubica, rumboReferencia } = useUbicacionGlobal();
+  const { ubica, rumboReferencia, permiso } = useUbicacionGlobal();
   const [puntos] = useState(datosMapa.puntos);
 
   // Vigilar obstaculos tambien desde aqui
@@ -33,15 +36,19 @@ export default function PantallaBuscar() {
     return { lugares: porDistancia(lugares), riesgos: porDistancia(riesgos) };
   }, [puntos, ubica]);
 
+  const secciones = useMemo(() => [
+    { titulo: 'Lugares', data: ordenados.lugares },
+    { titulo: 'Precauciones', data: ordenados.riesgos },
+  ].filter(s => s.data.length > 0), [ordenados]);
+
   const renderPunto = useCallback(
-    p => {
+    (p) => {
       const conGps = Boolean(ubica);
       const d = conGps ? distanciaMetros(ubica.lat, ubica.lng, p.lat, p.lng) : null;
       const rumboObjetivo = conGps ? rumboEntre(ubica.lat, ubica.lng, p.lat, p.lng) : null;
       const esRiesgo = esPrecaucion(p);
-      const mencion = conGps
-        ? textoDistancia(d)
-        : 'GPS pendiente';
+      const color = p.color || C.azul;
+      const mencion = conGps ? textoDistancia(d) : 'GPS pendiente';
 
       const alHablar = () => {
         if (esRiesgo) {
@@ -68,71 +75,195 @@ export default function PantallaBuscar() {
             : `${p.nombre}, ${p.tipoNombre}, ${mencion}`}
           accessibilityHint="Toca para escuchar la información por voz"
         >
-          <View style={[styles.balonColor, { backgroundColor: p.color || '#78909c' }]} />
+          <View
+            style={[
+              styles.avatar,
+              { backgroundColor: esRiesgo ? C.ambarClaro : color + '22' },
+            ]}
+          >
+            {esRiesgo
+              ? <Icono nombre="alerta" tamaño={18} color={C.ambar} />
+              : <View style={[styles.punto, { backgroundColor: color }]} />}
+          </View>
+
           <View style={styles.textos}>
-            <Text style={styles.nombre}>{p.nombre}</Text>
-            <Text style={styles.tipo}>
-              {esRiesgo ? `Precaución · ${mencion}` : `${p.tipoNombre} · ${mencion}`}
+            <Text style={styles.nombre} numberOfLines={1}>{p.nombre}</Text>
+            <Text style={styles.tipo} numberOfLines={1}>
+              {esRiesgo ? 'Precaución: ten cuidado al pasar' : p.tipoNombre}
             </Text>
           </View>
+
+          <View style={[styles.pill, esRiesgo && styles.pillRiesgo]}>
+            <Text style={[styles.pillTexto, esRiesgo && styles.pillTextoRiesgo]}>
+              {conGps ? `${Math.round(d)} m` : '—'}
+            </Text>
+          </View>
+
+          <Icono nombre="chevron" tamaño={15} color={C.textoSuave} />
         </Pressable>
       );
     },
     [ubica, rumboReferencia]
   );
 
+  const totalLugares = ordenados.lugares.length;
+  const totalRiesgos = ordenados.riesgos.length;
+
   return (
     <View style={styles.contenedor}>
-      <View style={styles.aviso}>
-        <Text style={styles.avisoTexto} accessible={true}>
+      <StatusBar style="light" />
+      <View style={styles.cabecera}>
+        <View style={styles.cabeceraTituloFila}>
+          <View style={styles.cabeceraIcono}>
+            <Icono nombre="lupa" tamaño={19} color={C.azul} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cabeceraTitulo}>Cerca de ti</Text>
+            <Text style={styles.cabeceraSub}>
+              {totalLugares} lugares · {totalRiesgos} precauciones
+            </Text>
+          </View>
+          <View style={[styles.estadoChip, ubica ? styles.estadoChipOk : styles.estadoChipEspera]}>
+            <View style={[styles.estadoPunto, { backgroundColor: ubica ? C.verdeOscuro : C.ambar }]} />
+            <Text style={[styles.estadoTexto, { color: ubica ? C.verdeOscuro : C.ambar }]}>
+              {ubica ? 'GPS activo' : permiso === 'denied' ? 'Sin permiso' : 'Sin GPS'}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.cabeceraAyuda} accessible={true}>
           {ubica
-            ? `Hay ${puntos.length} puntos. Los lugares más cercanos aparecen primero; los escalones, escaleras y rampas van al final como precaución. Toca uno para escucharlo.`
-            : `Hay ${puntos.length} puntos. Esperando GPS para medir distancias...`}
+            ? 'Los lugares más cercanos aparecen primero. Toca uno para escucharlo.'
+            : 'Esperando GPS para medir distancias. Mientras tanto puedes tocar cualquier punto.'}
         </Text>
       </View>
-      <FlatList
-        data={[...ordenados.lugares, ...ordenados.riesgos]}
+
+      <SectionList
+        sections={secciones}
         keyExtractor={p => String(p.id)}
         renderItem={({ item }) => renderPunto(item)}
         initialNumToRender={15}
+        stickySectionHeadersEnabled={false}
         contentContainerStyle={styles.lista}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.seccionCabecera}>
+            <Text style={styles.seccionTitulo}>
+              {section.titulo.toUpperCase()}
+            </Text>
+            <View style={styles.seccionContador}>
+              <Text style={styles.seccionContadorTexto}>{section.data.length}</Text>
+            </View>
+          </View>
+        )}
+        ListFooterComponent={
+          <Text style={styles.pie}>
+            Escaleras, rampas y escalones se avisan por voz cuando te acercas.
+          </Text>
+        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: '#f0f2f5' },
-  aviso: {
-    padding: 12,
-    backgroundColor: '#1F4E79',
+  contenedor: { flex: 1, backgroundColor: C.fondo },
+  cabecera: {
+    backgroundColor: C.tarjeta,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.borde,
   },
-  avisoTexto: { color: '#fff', fontSize: 14, lineHeight: 20, textAlign: 'center' },
-  lista: { padding: 8 },
+  cabeceraTituloFila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cabeceraIcono: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.azulClaro,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cabeceraTitulo: { fontSize: 18, fontWeight: '900', color: C.navy },
+  cabeceraSub: { fontSize: 12, color: C.textoSuave, marginTop: 1 },
+  cabeceraAyuda: { fontSize: 13, color: C.textoMedio, lineHeight: 19, marginTop: 10 },
+  estadoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: R.redondo,
+  },
+  estadoChipOk: { backgroundColor: C.verdeClaro },
+  estadoChipEspera: { backgroundColor: C.ambarClaro },
+  estadoPunto: { width: 6, height: 6, borderRadius: 3 },
+  estadoTexto: { fontSize: 10, fontWeight: '800' },
+
+  lista: { paddingHorizontal: 12, paddingBottom: 32 },
+  seccionCabecera: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 16,
+    paddingBottom: 8,
+    paddingHorizontal: 4,
+  },
+  seccionTitulo: { fontSize: 12, fontWeight: '900', color: C.textoSuave, letterSpacing: 0.8 },
+  seccionContador: {
+    backgroundColor: C.borde,
+    borderRadius: R.redondo,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+  },
+  seccionContadorTexto: { fontSize: 10, fontWeight: '800', color: C.textoMedio },
+
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: C.tarjeta,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    borderRadius: 12,
-    marginVertical: 4,
+    borderRadius: R.m,
+    marginBottom: 8,
     gap: 12,
+    borderWidth: 1,
+    borderColor: C.borde,
+    ...SOMBRA_SUAVE,
   },
   itemRiesgo: {
-    backgroundColor: '#fff7ed',
-    borderColor: '#f59e0b',
-    borderWidth: 1,
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
   },
-  itemPresionado: { backgroundColor: '#e5edf5' },
-  balonColor: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#fff',
+  itemPresionado: { backgroundColor: C.azulClaro, transform: [{ scale: 0.99 }] },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  punto: { width: 14, height: 14, borderRadius: 7 },
   textos: { flex: 1 },
-  nombre: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  tipo: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  nombre: { fontSize: 16, fontWeight: '800', color: C.texto },
+  tipo: { fontSize: 12, color: C.textoSuave, marginTop: 2 },
+  pill: {
+    paddingVertical: 6,
+    paddingHorizontal: 9,
+    borderRadius: R.redondo,
+    backgroundColor: C.fondo,
+    minWidth: 52,
+    alignItems: 'center',
+  },
+  pillRiesgo: { backgroundColor: '#FEF3C7' },
+  pillTexto: { fontSize: 12, fontWeight: '900', color: C.navy },
+  pillTextoRiesgo: { color: '#92400E' },
+
+  pie: {
+    fontSize: 12,
+    color: C.textoSuave,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 16,
+    paddingHorizontal: 20,
+  },
 });
