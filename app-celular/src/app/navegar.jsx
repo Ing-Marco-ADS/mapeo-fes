@@ -56,7 +56,7 @@ function distanciaVisual(metros) {
 }
 
 export default function PantallaNavegar() {
-  const { ubica, rumboReferencia, fuenteRumbo, permiso } = useUbicacionGlobal();
+  const { ubica, rumboReferencia, rumboPantalla, fuenteRumbo, permiso } = useUbicacionGlobal();
   const [puntos] = useState(datosMapa.puntos);
   const [destino, setDestino] = useState(null);
   const [segundo, setSegundo] = useState(() => Date.now());
@@ -86,10 +86,12 @@ export default function PantallaNavegar() {
   // Destino mas cercano para sugerir (lugares validos)
   const puntoMasCercano = useMemo(() => {
     if (!ubica?.lat || lugares.length === 0) return null;
+    const posLat = ubica.latCruda ?? ubica.lat;
+    const posLng = ubica.lngCruda ?? ubica.lng;
     let mejor = null;
     let mejorDist = Infinity;
     for (const p of lugares) {
-      const d = distanciaMetros(ubica.lat, ubica.lng, p.lat, p.lng);
+      const d = distanciaMetros(posLat, posLng, p.lat, p.lng);
       if (d < mejorDist) { mejorDist = d; mejor = p; }
     }
     return { punto: mejor, distancia: mejorDist };
@@ -98,10 +100,12 @@ export default function PantallaNavegar() {
   // Lugares ordenados por distancia (si hay GPS)
   const ordenados = useMemo(() => {
     if (!ubica?.lat) return lugares;
+    const posLat = ubica.latCruda ?? ubica.lat;
+    const posLng = ubica.lngCruda ?? ubica.lng;
     return [...lugares].sort(
       (a, b) =>
-        distanciaMetros(ubica.lat, ubica.lng, a.lat, a.lng) -
-        distanciaMetros(ubica.lat, ubica.lng, b.lat, b.lng)
+        distanciaMetros(posLat, posLng, a.lat, a.lng) -
+        distanciaMetros(posLat, posLng, b.lat, b.lng)
     );
   }, [lugares, ubica]);
 
@@ -112,7 +116,7 @@ export default function PantallaNavegar() {
     rutaIntentadaId.current = destino.id;
     let activo = true;
     setRutaCargando(true);
-    obtenerRutaPeatonal(ubica.lat, ubica.lng, destino.lat, destino.lng).then(r => {
+    obtenerRutaPeatonal(ubica.latCruda ?? ubica.lat, ubica.lngCruda ?? ubica.lng, destino.lat, destino.lng).then(r => {
       if (!activo) return;
       if (r) {
         setRuta(r);
@@ -160,7 +164,9 @@ export default function PantallaNavegar() {
   // igual decimos la direccion cardinal ("al noreste"), nunca nos quedamos callados.
   useEffect(() => {
     if (!destino || !ubica?.lat) return;
-    const lat = ubica.lat, lng = ubica.lng;
+    // Posicion mas fresca (GPS crudo) para que la distancia reaccione al instante.
+    const lat = ubica.latCruda ?? ubica.lat;
+    const lng = ubica.lngCruda ?? ubica.lng;
     const ahora = Date.now();
     const rumboActual = rumboReferencia ?? null;
 
@@ -318,7 +324,9 @@ export default function PantallaNavegar() {
           }
           renderItem={({ item, index }) => {
             const conGps = Boolean(ubica?.lat);
-            const d = conGps ? distanciaMetros(ubica.lat, ubica.lng, item.lat, item.lng) : null;
+            const posLat = ubica?.latCruda ?? ubica?.lat;
+            const posLng = ubica?.lngCruda ?? ubica?.lng;
+            const d = conGps ? distanciaMetros(posLat, posLng, item.lat, item.lng) : null;
             const color = item.color || C.azul;
             return (
               <Pressable
@@ -367,18 +375,26 @@ export default function PantallaNavegar() {
   let rumboObjetivo;     // a donde apuntar la flecha
   if (usandoRuta && conGps) {
     const s = ruta.pasos;
-    const p = calcularPasados(s, ubica.lat, ubica.lng);
+    const posLat = ubica.latCruda ?? ubica.lat;
+    const posLng = ubica.lngCruda ?? ubica.lng;
+    const p = calcularPasados(s, posLat, posLng);
     const idx = Math.min(p + 1, s.length - 1);
     const prox = s[idx];
-    d = metrosRestantes(s, ubica.lat, ubica.lng, Math.max(p, 0));
-    rumboObjetivo = rumboEntre(ubica.lat, ubica.lng, prox.lat, prox.lng);
+    d = metrosRestantes(s, posLat, posLng, Math.max(p, 0));
+    rumboObjetivo = rumboEntre(posLat, posLng, prox.lat, prox.lng);
   } else {
-    d = conGps ? distanciaMetros(ubica.lat, ubica.lng, destino.lat, destino.lng) : null;
-    rumboObjetivo = conGps ? rumboEntre(ubica.lat, ubica.lng, destino.lat, destino.lng) : null;
+    const posLat2 = ubica.latCruda ?? ubica.lat;
+    const posLng2 = ubica.lngCruda ?? ubica.lng;
+    d = conGps ? distanciaMetros(posLat2, posLng2, destino.lat, destino.lng) : null;
+    rumboObjetivo = conGps ? rumboEntre(posLat2, posLng2, destino.lat, destino.lng) : null;
   }
   const rumboActual = rumboReferencia ?? null;
+  const rumboTelefono = rumboPantalla ?? rumboReferencia ?? null;
   const giro = conGps && rumboActual != null && rumboObjetivo != null
     ? giroRelativo(rumboActual, rumboObjetivo)
+    : null;
+  const giroFlecha = conGps && rumboTelefono != null && rumboObjetivo != null
+    ? giroRelativo(rumboTelefono, rumboObjetivo)
     : null;
   // `textoDireccion` cae al cardinal absoluto ("al noreste") si aun no hay
   // rumbo, asi que SIEMPRE hay una indicacion util para la persona.
@@ -391,7 +407,7 @@ export default function PantallaNavegar() {
     ? Math.max(0, Math.round((segundo - ubica.actualizadoEn) / 1000))
     : null;
 
-  const anguloFlecha = giro != null ? giro : 0;
+  const anguloFlecha = giroFlecha != null ? giroFlecha : 0;
   const estadoRuta = rutaCargando
     ? 'Calculando ruta…'
     : usandoRuta
@@ -416,7 +432,7 @@ export default function PantallaNavegar() {
     if (direccion) partes.push(`El destino está${direccion}.`);
     if (giro != null && Math.abs(giro) >= 20) partes.push(textoGiro(giro).trim());
     if (usandoRuta && ruta?.pasos) {
-      const p = calcularPasados(ruta.pasos, ubica.lat, ubica.lng);
+      const p = calcularPasados(ruta.pasos, ubica.latCruda ?? ubica.lat, ubica.lngCruda ?? ubica.lng);
       const sig = ruta.pasos[Math.min(p + 1, ruta.pasos.length - 1)];
       if (sig && !sig.esLlegada) partes.push(sig.texto + '.');
     }
@@ -426,10 +442,10 @@ export default function PantallaNavegar() {
 
   const leyendaFlecha = !conGps
     ? 'Esperando GPS…'
-    : giro != null
-      ? (Math.abs(giro) < 20
+    : giroFlecha != null
+      ? (Math.abs(giroFlecha) < 20
           ? 'Sigue derecho: el destino está al frente'
-          : giro > 0
+          : giroFlecha > 0
             ? 'La flecha apunta a tu derecha'
             : 'La flecha apunta a tu izquierda')
       : `La flecha se activa al caminar. Mientras tanto, el destino está${direccion}`;
@@ -456,7 +472,7 @@ export default function PantallaNavegar() {
       </View>
 
       <View style={styles.flechaZona}>
-        <FlechaDestino giro={anguloFlecha} tamaño={186} activo={giro != null} />
+        <FlechaDestino giro={anguloFlecha} tamaño={186} activo={giroFlecha != null} />
         <Text style={styles.flechaLeyenda} accessible={true}>{leyendaFlecha}</Text>
       </View>
 

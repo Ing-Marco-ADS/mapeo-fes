@@ -184,7 +184,7 @@ export function useUbicacion() {
   // a 10 Hz, que hacen que la app se sienta lenta).
   const publicarSensor = useCallback((valor, en) => {
     const previo = ultimoPublicadoRef.current;
-    if (previo != null && Math.abs(diferenciaCorta(previo, valor)) < 0.7) {
+    if (previo != null && Math.abs(diferenciaCorta(previo, valor)) < 0.5) {
       // Sin cambio real: solo refresca el momento cada ~900 ms.
       setSensorRumbo(s => (s.grados != null && en - s.en < 900 ? s : { ...s, en }));
       return;
@@ -209,7 +209,7 @@ export function useUbicacion() {
     }
 
     const corregido = cortarAngulo(crudo + offsetRef.current);
-    const suave = suavizarRumbo(rumboSuaveRef.current, corregido, 0.4, 45);
+    const suave = suavizarRumbo(rumboSuaveRef.current, corregido, 0.6, 45);
     rumboSuaveRef.current = suave;
 
     publicarSensor(suave, ahora);
@@ -240,7 +240,7 @@ export function useUbicacion() {
   // ---------- Brujula principal en Android: vector de rotacion ----------
   const iniciarMovimiento = useCallback(async () => {
     try {
-      DeviceMotion.setUpdateInterval(100);
+      DeviceMotion.setUpdateInterval(50);
       subMovimiento.current = DeviceMotion.addListener((m) => {
         const rot = m?.rotation;
         if (!rot || typeof rot.alpha !== 'number') return;
@@ -298,11 +298,11 @@ export function useUbicacion() {
 
     if (velEstimada >= CURSO_MIN_VEL) {
       const bruto = cortarAngulo((Math.atan2(vx, vy) * 180) / Math.PI);
-      cursoRef.current = suavizarRumbo(cursoRef.current, bruto, 0.45, 55);
+      cursoRef.current = suavizarRumbo(cursoRef.current, bruto, 0.6, 60);
       cursoEnRef.current = ahora;
     } else if (heading != null && heading >= 0 && velocidadReal != null && velocidadReal >= CURSO_MIN_VEL) {
       // Respaldo: el rumbo que reporta el propio GPS al caminar.
-      cursoRef.current = suavizarRumbo(cursoRef.current, cortarAngulo(heading), 0.3, 45);
+      cursoRef.current = suavizarRumbo(cursoRef.current, cortarAngulo(heading), 0.45, 45);
       cursoEnRef.current = ahora;
     }
 
@@ -343,6 +343,8 @@ export function useUbicacion() {
     setUbica(prev => ({
       lat: r.esPico ? (prev?.lat ?? lat) : r.lat,
       lng: r.esPico ? (prev?.lng ?? lng) : r.lng,
+      latCruda: r.esPico ? (prev?.latCruda ?? lat) : lat,
+      lngCruda: r.esPico ? (prev?.lngCruda ?? lng) : lng,
       precision: r.precision ?? null,
       velocidad: velocidadReal,
       rumbo: rumboCaminata,
