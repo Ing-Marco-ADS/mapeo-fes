@@ -61,14 +61,22 @@ export function textoRelativo(rumboActual, rumboObjetivo) {
   return ' directamente atrás de ti';
 }
 
+// Igual que textoRelativo, pero si no hay brujula ni curso GPS usa la
+// direccion cardinal absoluta ("al noreste"). Asi NUNCA se queda callado.
+export function textoDireccion(rumboActual, rumboObjetivo) {
+  if (rumboObjetivo == null) return '';
+  if (rumboActual == null) return ` al ${cardinalDeRumbo(rumboObjetivo)}`;
+  return textoRelativo(rumboActual, rumboObjetivo);
+}
+
 // Formatea metros de forma natural y exacta para voz (para que se
 // note que la distancia va bajando al caminar)
 export function textoDistancia(metros) {
   const n = Math.round(metros);
-  if (n < 10) return `a ${n} metros`;
-  if (n < 100) return `a ${n} metros`;
-  if (n < 1000) return `a ${(n / 100).toFixed(0)}00 metros`;
-  return `a ${(n / 1000).toFixed(1)} kilómetros`;
+  if (n < 1000) return `a ${n} metros`;
+  const km = n / 1000;
+  const txt = km < 10 ? km.toFixed(1) : String(Math.round(km));
+  return `a ${txt} ${txt === '1.0' ? 'kilómetro' : 'kilómetros'}`;
 }
 
 // Redondea para voz de forma natural (ej: 33.4 -> 33)

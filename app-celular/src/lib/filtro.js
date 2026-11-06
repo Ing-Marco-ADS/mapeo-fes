@@ -95,7 +95,7 @@ export default class FiltroGPS {
       this.origen = [lat, lng];
       this.ultimoPunto = [lat, lng];
       this.ultimoTiempo = ahora;
-      return { lat, lng, precision: prec, esPico: false, bearing: null, velocidad: 0 };
+      return { lat, lng, precision: prec, esPico: false, bearing: null, velocidad: 0, vx: 0, vy: 0 };
     }
 
     const dt = (ahora - this.ultimoTiempo) / 1000;
@@ -108,6 +108,7 @@ export default class FiltroGPS {
       return {
         lat: this.ultimoPunto[0], lng: this.ultimoPunto[1],
         precision: prec, esPico: true, bearing: this.bearing, velocidad: 0,
+        vx: this.x[2], vy: this.x[3],
       };
     }
 
@@ -133,7 +134,11 @@ export default class FiltroGPS {
 
     this.ultimoPunto = [flat, flng];
     this.ultimoTiempo = ahora;
-    return { lat: flat, lng: flng, precision: prec, esPico: false, bearing: this.bearing, velocidad };
+    return {
+      lat: flat, lng: flng, precision: prec, esPico: false,
+      bearing: this.bearing, velocidad,
+      vx: this.x[2], vy: this.x[3],
+    };
   }
 
   predecir(dt) {

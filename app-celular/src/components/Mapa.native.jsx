@@ -13,7 +13,7 @@ import { distanciaMetros, rumboEntre } from '../lib/geo';
 
 const ALCANCE_M = 250; // radio del radar en metros (el borde = este alcance)
 
-export default function Mapa({ puntos, ubica, alSeleccionarPunto }) {
+export default function Mapa({ puntos, ubica, alSeleccionarPunto, rumboPantalla = null }) {
   const [caja, setCaja] = useState({ ancho: 0, alto: 0 });
 
   const onLayout = (e) => {
@@ -25,14 +25,16 @@ export default function Mapa({ puntos, ubica, alSeleccionarPunto }) {
   const radio = lado / 2 - 8;
   const centroX = caja.ancho / 2;
   const centroY = caja.alto / 2;
-  const rumboPantalla = ubica?.rumboPantalla ?? ubica?.rumbo ?? 0;
+  // Orientacion del radar: la direccion de referencia (GPS caminando o
+  // brujula). Sin ninguna, el radar queda con el norte arriba.
+  const orientacion = rumboPantalla ?? ubica?.rumbo ?? 0;
 
   // Convierte (lat, lng) en una posicion dentro del radar. Arriba = hacia
   // donde miras/caminas (heading-up); los lejanos se pegan al borde.
   function posicionDe(lat, lng) {
     const d = distanciaMetros(ubica.lat, ubica.lng, lat, lng);
     const rumbo = rumboEntre(ubica.lat, ubica.lng, lat, lng);
-    const ang = ((rumbo - rumboPantalla) * Math.PI) / 180;
+    const ang = ((rumbo - orientacion) * Math.PI) / 180;
     const r = Math.min(d / ALCANCE_M, 1) * radio;
     return {
       x: centroX + r * Math.sin(ang),

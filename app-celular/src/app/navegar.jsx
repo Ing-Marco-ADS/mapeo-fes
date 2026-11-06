@@ -13,15 +13,17 @@ import { usePrecauciones } from '../hooks/usePrecauciones';
 import { hablar, callar } from '../lib/voz';
 import { esPrecaucion } from '../lib/categorias';
 import { obtenerRutaPeatonal, metrosRestantes } from '../lib/ruta';
-import Brujula from '../components/Brujula';
+import FlechaDestino from '../components/FlechaDestino';
 import {
-  distanciaMetros, rumboEntre, giroRelativo, textoGiro, textoRelativo,
+  distanciaMetros, rumboEntre, giroRelativo, textoGiro, textoDireccion, textoDistancia,
 } from '../lib/geo';
 import datosMapa from '../datos_mapeo.json';
 
 const AVANZA_LEJOS = 25;   // metros de avance para volver a hablar estando lejos
 const AVANZA_CERCA = 8;    // metros de avance para volver a hablar estando cerca
-const MAX_SILENCIO = 20000;  // maximo ms sin hablar (por si el GPS no avanza)
+const MAX_SILENCIO = 15000;  // maximo ms sin hablar (por si el GPS no avanza)
+const REHABLAR_GIRO_MS = 4000;   // minima pausa entre avisos por cambio de giro
+const CAMBIO_GIRO_GRADOS = 35;   // si el rumbo cambia esto, se avisa en el acto
 const META_M = 10;           // metros: se considera que llegaste
 const PASAR_HITO_M = 15;     // metros: se considera que pasaste un giro de la ruta
 const AVISO_GIRO_M = 35;     // metros: avisar el giro que se aproxima
@@ -41,7 +43,7 @@ function calcularPasados(pasos, lat, lng) {
 }
 
 export default function PantallaNavegar() {
-  const { ubica } = useUbicacionGlobal();
+  const { ubica, rumboReferencia, fuenteRumbo, permiso } = useUbicacionGlobal();
   const [puntos] = useState(datosMapa.puntos);
   const [destino, setDestino] = useState(null);
   const [segundo, setSegundo] = useState(() => Date.now());
@@ -56,6 +58,7 @@ export default function PantallaNavegar() {
 
   const ultimaDistanciaHablada = useRef(0); // distancia cuando se hablo la ultima vez
   const ultimoTiempoHabla = useRef(0);      // timestamp del ultimo anuncio
+  const ultimoGiroHablado = useRef(null);   // ultimo giro relativo anunciado
   const metaAnunciada = useRef(false);
   const ultimoGiroAviso = useRef(null);     // indice del ultimo giro anunciado
   const rutaIntentadaId = useRef(null);     // id del destino cuya ruta ya se pidio
@@ -118,9 +121,11 @@ export default function PantallaNavegar() {
     setDestino(p);
     setRuta(null);
     setRutaCargando(false);
+    rutaIntentadaId.current = null;
     metaAnunciada.current = false;
     ultimaDistanciaHablada.current = 0;
     ultimoTiempoHabla.current = 0;
+    ultimoGiroHablado.current = null;
     ultimoGiroAviso.current = null;
     if (!ubica?.lat) {
       hablar(`Navegando hacia ${p.nombre}. Espera a que llegue el GPS para guiarte.`);
@@ -136,11 +141,15 @@ export default function PantallaNavegar() {
     setRutaCargando(false);
   }, []);
 
-  // Bucle de guia en tiempo real mientras se navega
+  // Bucle de guia en tiempo real mientras se navega.
+  // La direccion sale de `rumboReferencia`: al caminar manda el GPS (funciona
+  // en cualquier telefono) y, si estas quieto, la brujula. Si no hay ninguna,
+  // igual decimos la direccion cardinal ("al noreste"), nunca nos quedamos callados.
   useEffect(() => {
     if (!destino || !ubica?.lat) return;
     const lat = ubica.lat, lng = ubica.lng;
     const ahora = Date.now();
+    const rumboActual = rumboReferencia ?? null;
 
     // ---- Modo ruta peatonal (OSRM) ----
     const pasos = ruta?.pasos;
@@ -170,6 +179,8 @@ export default function PantallaNavegar() {
       // Aviso de llegada proxima (una sola vez)
       if (siguiente.esLlegada && dSig <= AVISO_LLEGADA_M && ultimoGiroAviso.current !== idxSig) {
         ultimoGiroAviso.current = idxSig;
+        ultimaDistanciaHablada.current = rem;
+        ultimoTiempoHabla.current = ahora;
         hablar(`Estás a ${Math.round(rem)} metros de ${destino.nombre}.`);
         return;
       }
@@ -177,6 +188,8 @@ export default function PantallaNavegar() {
       // Aviso del giro que se acerca (una sola vez por giro)
       if (!siguiente.esLlegada && dSig <= AVISO_GIRO_M && ultimoGiroAviso.current !== idxSig) {
         ultimoGiroAviso.current = idxSig;
+        ultimaDistanciaHablada.current = rem;
+        ultimoTiempoHabla.current = ahora;
         hablar(`En ${Math.round(dSig)} metros, ${siguiente.texto}.`);
         return;
       }
@@ -188,7 +201,7 @@ export default function PantallaNavegar() {
       return;
     }
 
-    // ---- Modo linea recta (respaldo) ----
+    // ---- Modo linea recta (respaldo si OSRM no responde) ----
     const d = distanciaMetros(lat, lng, destino.lat, destino.lng);
 
     if (d <= META_M) {
@@ -200,24 +213,35 @@ export default function PantallaNavegar() {
       return;
     }
 
+    const rumboObjetivo = rumboEntre(lat, lng, destino.lat, destino.lng);
+    const giro = rumboActual != null ? giroRelativo(rumboActual, rumboObjetivo) : null;
+
     const umbral = d < 100 ? AVANZA_CERCA : AVANZA_LEJOS;
     const avanzo = ultimaDistanciaHablada.current - d;
     const sinHablar = ahora - ultimoTiempoHabla.current > MAX_SILENCIO;
-    if (avanzo < umbral && !sinHablar) return;
+    // Si cambias de direccion (giras), se avisa en ese momento, no despues.
+    const cambioGiro = giro != null && ultimoGiroHablado.current != null
+      ? Math.abs(giroRelativo(ultimoGiroHablado.current, giro))
+      : 0;
+    const giroNuevo = giro != null
+      && cambioGiro >= CAMBIO_GIRO_GRADOS
+      && ahora - ultimoTiempoHabla.current > REHABLAR_GIRO_MS;
+
+    if (avanzo < umbral && !sinHablar && !giroNuevo) return;
 
     ultimaDistanciaHablada.current = d;
     ultimoTiempoHabla.current = ahora;
+    ultimoGiroHablado.current = giro;
 
-    const rumboObjetivo = rumboEntre(lat, lng, destino.lat, destino.lng);
-    const rumboActual = ubica.rumboPantalla ?? ubica.rumbo;
-    const giro = rumboActual != null ? giroRelativo(rumboActual, rumboObjetivo) : null;
-
+    // Sin brujula ni curso GPS: se usa el cardinal absoluto del destino.
+    const donde = textoDireccion(rumboActual, rumboObjetivo);
     if (giro != null) {
-      hablar(`A ${Math.round(d)} metros.` + textoGiro(giro));
+      const frase = Math.abs(giro) < 20 ? 'sigue de frente.' : textoGiro(giro).trim();
+      hablar(`A ${Math.round(d)} metros. ${frase} El destino está${donde}.`);
     } else {
-      hablar(`A ${Math.round(d)} metros. Camina y te iré guiando`);
+      hablar(`A ${Math.round(d)} metros. El destino está${donde}. Camina unos pasos y te voy corrigiendo.`);
     }
-  }, [ubica, destino, ruta]);
+  }, [ubica, destino, ruta, rumboReferencia]);
 
   // ---------- vista: eligiendo destino ----------
   if (!destino) {
@@ -280,9 +304,15 @@ export default function PantallaNavegar() {
     d = conGps ? distanciaMetros(ubica.lat, ubica.lng, destino.lat, destino.lng) : null;
     rumboObjetivo = conGps ? rumboEntre(ubica.lat, ubica.lng, destino.lat, destino.lng) : null;
   }
-  const rumboActual = (ubica?.rumboPantalla ?? ubica?.rumbo) ?? null;
-  const giro = conGps && rumboActual != null ? giroRelativo(rumboActual, rumboObjetivo) : null;
-  const relativo = conGps && rumboObjetivo != null ? textoRelativo(rumboActual, rumboObjetivo) : '';
+  const rumboActual = rumboReferencia ?? null;
+  const giro = conGps && rumboActual != null && rumboObjetivo != null
+    ? giroRelativo(rumboActual, rumboObjetivo)
+    : null;
+  // `textoDireccion` cae al cardinal absoluto ("al noreste") si aun no hay
+  // rumbo, asi que SIEMPRE hay una indicacion util para la persona.
+  const direccion = conGps && rumboObjetivo != null
+    ? textoDireccion(rumboActual, rumboObjetivo)
+    : '';
 
   // Segundos desde la ultima lectura del GPS (en vivo)
   const segActualizados = ubica?.actualizadoEn
@@ -295,6 +325,30 @@ export default function PantallaNavegar() {
     : usandoRuta
       ? 'Ruta por calles del campus'
       : 'Dirección directa al punto';
+  const fuenteTexto = fuenteRumbo === 'gps'
+    ? 'Dirección según tu caminata (GPS)'
+    : fuenteRumbo === 'brujula'
+      ? 'Dirección según la brújula'
+      : 'Sin rumbo todavía: se usa la referencia cardinal';
+
+  // Repite la indicacion actual a demanda (boton grande, util sin mirar).
+  const repetirIndicacion = () => {
+    if (!conGps) {
+      hablar('Todavía no tengo tu ubicación. Espera la señal del GPS.');
+      return;
+    }
+    const partes = [];
+    if (d != null) partes.push(`Faltan ${Math.round(d)} metros.`);
+    if (direccion) partes.push(`El destino está${direccion}.`);
+    if (giro != null && Math.abs(giro) >= 20) partes.push(textoGiro(giro).trim());
+    if (usandoRuta && ruta?.pasos) {
+      const p = calcularPasados(ruta.pasos, ubica.lat, ubica.lng);
+      const sig = ruta.pasos[Math.min(p + 1, ruta.pasos.length - 1)];
+      if (sig && !sig.esLlegada) partes.push(sig.texto + '.');
+    }
+    if (partes.length === 0) partes.push('Sigue caminando y te voy guiando.');
+    hablar(partes.join(' '));
+  };
 
   return (
     <View style={styles.contenedor}>
@@ -303,50 +357,67 @@ export default function PantallaNavegar() {
           Hacia: {destino.nombre}
         </Text>
 
-        <View style={styles.brujula}>
-          <Brujula
-            rumboPantalla={conGps ? (ubica.rumboPantalla ?? ubica.rumbo) : null}
-            rumboDestino={rumboObjetivo}
-          />
+        <View style={styles.flechaZona}>
+          <FlechaDestino giro={anguloFlecha} tamaño={200} activo={giro != null} />
           <Text style={styles.flechaLeyenda} accessible={true}>
-            {conGps
-              ? (giro != null
-                  ? (Math.abs(giro) < 20 ? 'Vas bien, sigue derecho' : anguloFlecha > 0 ? 'El giro está a tu derecha' : 'El giro está a tu izquierda')
-                  : 'Camina y se ajusta la guía')
-              : 'Esperando GPS...'}
+            {!conGps
+              ? 'Esperando GPS…'
+              : giro != null
+                ? (Math.abs(giro) < 20
+                    ? 'La flecha apunta al frente: sigue derecho'
+                    : giro > 0
+                      ? 'La flecha apunta a tu derecha'
+                      : 'La flecha apunta a tu izquierda')
+                : `La flecha se activa al caminar. Mientras tanto, el destino está${direccion}`}
           </Text>
         </View>
 
         <Text style={styles.navDistancia} accessible={true}>
-          {d != null ? `${Math.round(d)} metros` : 'Esperando GPS...'}
+          {d != null ? textoDistancia(d) : 'Esperando GPS...'}
         </Text>
         <Text style={styles.navRuta} accessible={true}>
           {estadoRuta}
         </Text>
-        {relativo !== '' && (
+        {direccion !== '' && (
           <Text style={styles.navRumbo} accessible={true}>
-            El punto está{relativo}
+            El destino está{direccion}
           </Text>
         )}
+        <Text style={styles.navFuente} accessible={true}>
+          {fuenteTexto}
+        </Text>
         <View style={styles.gpsVivo}>
           <Text style={styles.gpsVivoTexto} accessible={true}>
             {conGps
               ? `GPS activo · precisión ±${Math.round(ubica.precision ?? 0)} m`
-              : 'Sin señal GPS aún'}
+              : permiso === 'denied'
+                ? 'Sin permiso de ubicación'
+                : 'Sin señal GPS aún'}
           </Text>
           <Text style={styles.gpsVivoTexto} accessible={true}>
             {segActualizados != null ? `actualizado hace ${segActualizados} s` : ''}
           </Text>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.botonCancelar, pressed && styles.botonPresionado]}
-          onPress={cancelar}
-          accessibilityRole="button"
-          accessibilityLabel="Cancelar navegación"
-          accessibilityHint="Detiene la guía por voz"
-        >
-          <Text style={styles.botonCancelarTexto}>Cancelar</Text>
-        </Pressable>
+        <View style={styles.filaBotonesNav}>
+          <Pressable
+            style={({ pressed }) => [styles.botonRepetir, pressed && styles.botonPresionado]}
+            onPress={repetirIndicacion}
+            accessibilityRole="button"
+            accessibilityLabel="Repetir la indicación de navegación"
+            accessibilityHint="Vuelve a decir la distancia y hacia dónde ir"
+          >
+            <Text style={styles.botonRepetirTexto}>Repetir</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.botonCancelar, pressed && styles.botonPresionado]}
+            onPress={cancelar}
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar navegación"
+            accessibilityHint="Detiene la guía por voz"
+          >
+            <Text style={styles.botonCancelarTexto}>Cancelar</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -393,18 +464,27 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   navDestino: { color: '#fff', fontSize: 22, fontWeight: 'bold', textAlign: 'center' },
-  brujula: { alignItems: 'center', marginVertical: 8 },
+  flechaZona: { alignItems: 'center', marginVertical: 8 },
   flechaLeyenda: { color: '#bbf7d0', fontSize: 14, textAlign: 'center', marginTop: 12 },
   navDistancia: { color: '#dbeafe', fontSize: 26, fontWeight: '700', textAlign: 'center' },
   navRuta: { color: '#a7c957', fontSize: 14, fontWeight: '700', textAlign: 'center' },
   navRumbo: { color: '#93c5fd', fontSize: 15, textAlign: 'center' },
+  navFuente: { color: '#7dd3fc', fontSize: 12, textAlign: 'center' },
   gpsVivo: { marginTop: 10, alignItems: 'center', gap: 2 },
   gpsVivoTexto: { color: '#93c5fd', fontSize: 13, textAlign: 'center' },
+  filaBotonesNav: { flexDirection: 'row', gap: 12, marginTop: 20, flexWrap: 'wrap', justifyContent: 'center' },
+  botonRepetir: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 16,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  botonRepetirTexto: { color: '#fff', fontSize: 17, fontWeight: '700' },
   botonCancelar: {
-    marginTop: 20,
     backgroundColor: '#dc2626',
     paddingVertical: 16,
-    paddingHorizontal: 40,
+    paddingHorizontal: 30,
     borderRadius: 12,
     alignItems: 'center',
   },

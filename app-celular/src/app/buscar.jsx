@@ -7,11 +7,11 @@ import { useUbicacionGlobal } from '../hooks/useUbicacion';
 import { usePrecauciones } from '../hooks/usePrecauciones';
 import { hablar } from '../lib/voz';
 import { esPrecaucion, textoPrecaucion } from '../lib/categorias';
-import { distanciaMetros, textoDistancia, rumboEntre, textoRelativo } from '../lib/geo';
+import { distanciaMetros, textoDistancia, rumboEntre, textoDireccion } from '../lib/geo';
 import datosMapa from '../datos_mapeo.json';
 
 export default function PantallaBuscar() {
-  const { ubica } = useUbicacionGlobal();
+  const { ubica, rumboReferencia } = useUbicacionGlobal();
   const [puntos] = useState(datosMapa.puntos);
 
   // Vigilar obstaculos tambien desde aqui
@@ -47,8 +47,8 @@ export default function PantallaBuscar() {
         if (esRiesgo) {
           hablar(textoPrecaucion(p, conGps ? textoDistancia(d) : 'a la distancia indicada'));
         } else if (conGps) {
-          const relativo = ubica.rumbo != null ? textoRelativo(ubica.rumbo, rumboObjetivo) : '';
-          hablar(`${p.nombre}. ${textoDistancia(d)}${relativo}.`);
+          const direccion = textoDireccion(rumboReferencia, rumboObjetivo);
+          hablar(`${p.nombre}. ${textoDistancia(d)}${direccion}.`);
         } else {
           hablar(`${p.nombre}. GPS pendiente: espera tu ubicación para medir la distancia.`);
         }
@@ -78,7 +78,7 @@ export default function PantallaBuscar() {
         </Pressable>
       );
     },
-    [ubica]
+    [ubica, rumboReferencia]
   );
 
   return (

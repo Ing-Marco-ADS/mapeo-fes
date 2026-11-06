@@ -7,7 +7,7 @@ import { useUbicacionGlobal } from '../hooks/useUbicacion';
 import { usePrecauciones } from '../hooks/usePrecauciones';
 import { hablar, callar } from '../lib/voz';
 import { esPrecaucion, textoPrecaucion } from '../lib/categorias';
-import { distanciaMetros, textoDistancia, rumboEntre, textoRelativo } from '../lib/geo';
+import { distanciaMetros, textoDistancia, rumboEntre, textoDireccion } from '../lib/geo';
 import datosMapa from '../datos_mapeo.json';
 import Mapa from '../components/Mapa';
 
@@ -15,7 +15,7 @@ const RADIO_CERCA = 40; // metros: cuando un lugar esta mas cerca, se anuncia
 
 export default function PantallaMapa() {
   const router = useRouter();
-  const { ubica, permiso } = useUbicacionGlobal();
+  const { ubica, permiso, rumboReferencia } = useUbicacionGlobal();
   const [puntos] = useState(datosMapa.puntos);
 
   const lugares = useMemo(() => puntos.filter(p => !esPrecaucion(p)), [puntos]);
@@ -48,13 +48,13 @@ export default function PantallaMapa() {
       const primero = cercanos[0];
       const d = distanciaMetros(ubica.lat, ubica.lng, primero.lat, primero.lng);
       const rumboObjetivo = rumboEntre(ubica.lat, ubica.lng, primero.lat, primero.lng);
-      const relativo = ubica.rumbo != null ? textoRelativo(ubica.rumbo, rumboObjetivo) : '';
+      const relativo = textoDireccion(rumboReferencia, rumboObjetivo);
       hablar(
         `Tienes cerca ${primero.nombre}, ${textoDistancia(d)}${relativo}.`
       );
       cercanos.forEach(c => anunciadosIds.current.add(c.id));
     }
-  }, [ubica, lugares]);
+  }, [ubica, lugares, rumboReferencia]);
 
   // Boton para repetir la informacion de los cercanos a demanda
   const anunciarTodo = useCallback(() => {
@@ -72,11 +72,11 @@ export default function PantallaMapa() {
       top.map((p, i) => {
         const d = distanciaMetros(ubica.lat, ubica.lng, p.lat, p.lng);
         const rumboObjetivo = rumboEntre(ubica.lat, ubica.lng, p.lat, p.lng);
-        const relativo = ubica.rumbo != null ? textoRelativo(ubica.rumbo, rumboObjetivo) : '';
+        const relativo = textoDireccion(rumboReferencia, rumboObjetivo);
         return `${i + 1}. ${p.nombre}, ${textoDistancia(d)}${relativo}.`;
       }).join(' ')
     );
-  }, [ubica, ordenados]);
+  }, [ubica, ordenados, rumboReferencia]);
 
   const irANavegar = useCallback(() => {
     callar();
@@ -106,7 +106,12 @@ export default function PantallaMapa() {
   return (
     <View style={styles.contenedor}>
       <View style={styles.contenedorMapa}>
-        <Mapa puntos={puntos} ubica={ubica} alSeleccionarPunto={alSeleccionarPunto} />
+        <Mapa
+          puntos={puntos}
+          ubica={ubica}
+          rumboPantalla={rumboReferencia}
+          alSeleccionarPunto={alSeleccionarPunto}
+        />
       </View>
 
       {/* Panel de accesibilidad */}
